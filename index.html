@@ -17,7 +17,7 @@
   --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans SC',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-weight:300;height:100vh;display:flex;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-weight:300;height:100dvh;display:flex;overflow:hidden;}
 
 /* ── Sessions ── */
 #sessions-panel{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
@@ -153,6 +153,10 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .progress-bar{height:2px;background:var(--surface3);border-radius:1px;margin-top:4px;overflow:hidden;}
 .progress-fill{height:100%;background:var(--yellow);border-radius:1px;transition:width .2s;}
 
+/* drag & drop */
+#input-area.drag-over{background:var(--surface2);}
+#input-area.drag-over .input-box{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
+
 /* ── Mobile ── */
 .menu-btn{display:none;}
 #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;}
@@ -229,10 +233,9 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
         <input type="text" id="base-url" placeholder="Base URL" oninput="saveSettings()"/>
         <select id="model-select" onchange="updateModelHint();saveSettings()">
           <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
           <option value="gemini-2.5-pro">gemini-2.5-pro</option>
           <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
-          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
         </select>
         <input type="text" id="custom-model" placeholder="自定义模型名（覆盖上方）" oninput="updateModelHint();saveSettings()"/>
       </div>
@@ -713,10 +716,28 @@ function removePending(id) {
   document.getElementById('card-'+id)?.remove();
 }
 
+// ── Drag & Drop ──
+const inputArea = document.getElementById('input-area');
+inputArea.addEventListener('dragover', e => { e.preventDefault(); inputArea.classList.add('drag-over'); });
+inputArea.addEventListener('dragleave', e => { if (!inputArea.contains(e.relatedTarget)) inputArea.classList.remove('drag-over'); });
+inputArea.addEventListener('drop', e => {
+  e.preventDefault(); inputArea.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+});
+
+// ── Mobile keyboard: visualViewport fallback ──
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    const kb = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
+    inputArea.style.paddingBottom = kb > 50 ? (kb + 8) + 'px' : '';
+  });
+}
+
 // ── Textarea ──
 const ta = document.getElementById('user-input');
 ta.addEventListener('input', ()=>{ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,160)+'px';});
 ta.addEventListener('keydown', e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+ta.addEventListener('focus', () => { setTimeout(() => ta.scrollIntoView({behavior:'smooth', block:'nearest'}), 300); });
 
 // ── Send ──
 async function sendMessage() {

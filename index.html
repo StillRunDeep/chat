@@ -152,6 +152,37 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 /* upload progress bar */
 .progress-bar{height:2px;background:var(--surface3);border-radius:1px;margin-top:4px;overflow:hidden;}
 .progress-fill{height:100%;background:var(--yellow);border-radius:1px;transition:width .2s;}
+
+/* ── Mobile ── */
+.menu-btn{display:none;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;}
+#overlay.active{display:block;}
+
+@media(max-width:640px){
+  .menu-btn{display:flex;background:transparent;border:1px solid transparent;border-radius:6px;width:32px;height:32px;align-items:center;justify-content:center;cursor:pointer;color:var(--text-faint);flex-shrink:0;transition:all .15s;}
+  .menu-btn:hover{color:var(--text-dim);background:var(--surface2);border-color:var(--border);}
+
+  #sessions-panel{position:fixed;left:0;top:0;height:100%;z-index:200;transform:translateX(-100%);transition:transform .25s ease;}
+  #sessions-panel.mobile-open{transform:translateX(0);}
+
+  #topbar{padding:0 10px;}
+  .topbar-title{max-width:160px;font-size:11px;}
+  .topbar-model{display:none;}
+
+  #config-bar.open{max-height:1200px;}
+  .config-inner{grid-template-columns:1fr;gap:12px;padding:12px 14px;}
+
+  #messages{padding:16px 0;}
+  .msg-wrap{padding:0 12px;}
+  .msg{gap:10px;padding:12px 0;}
+  .msg-content{font-size:13px;}
+
+  #input-area{padding:8px 10px 12px;}
+  #user-input{font-size:13px;}
+  .input-hint{font-size:9px;}
+
+  .file-chip.img-chip img{max-width:100%;}
+}
 </style>
 </head>
 <body>
@@ -164,12 +195,18 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
   </div>
   <div id="session-list"></div>
 </div>
+<div id="overlay" onclick="toggleMobileMenu()"></div>
 
 <!-- Right -->
 <div id="right">
   <!-- Topbar -->
   <div id="topbar">
     <div class="topbar-left">
+      <button class="menu-btn" onclick="toggleMobileMenu()" title="会话列表">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
       <span class="topbar-title" id="topbar-title">—</span>
     </div>
     <div class="topbar-right">
@@ -373,6 +410,15 @@ function switchSession(id) {
   activeId = id; saveActive();
   renderSessionList(); renderMessages();
   document.getElementById('topbar-title').textContent = sessions[id]?.title||'—';
+  if (window.innerWidth <= 640) toggleMobileMenu(false);
+}
+
+function toggleMobileMenu(force) {
+  const panel = document.getElementById('sessions-panel');
+  const overlay = document.getElementById('overlay');
+  const open = force !== undefined ? force : !panel.classList.contains('mobile-open');
+  panel.classList.toggle('mobile-open', open);
+  overlay.classList.toggle('active', open);
 }
 
 function deleteSession(id) {

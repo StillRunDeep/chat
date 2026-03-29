@@ -1031,9 +1031,8 @@ async function generateResponse(popUserOnError) {
     liveWrap.remove();
     const cont = document.getElementById('msg-container');
     const w=document.createElement('div'); w.className='msg assistant';
-    w.innerHTML=`<div class="msg-avatar">G</div><div class="msg-body"><div class="msg-role">Gemini</div><div class="msg-error">⚠ ${escHtml(lastErr.message)}</div></div>`;
+    w.innerHTML=`<div class="msg-avatar">G</div><div class="msg-body"><div class="msg-role">Gemini</div><div class="msg-error">⚠ ${escHtml(lastErr.message)}<span style="display:block;margin-top:5px;font-size:10px;opacity:.7;">点击上方消息的编辑按钮可重新发送</span></div></div>`;
     cont.appendChild(w); scrollBot();
-    if (popUserOnError) { sess.messages.pop(); saveSessions(); }
   }
   isGenerating=false;
   document.getElementById('send-btn').disabled=false;

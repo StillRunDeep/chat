@@ -731,9 +731,11 @@ async function renderMermaid(el) {
   for (const code of el.querySelectorAll('pre code.language-mermaid')) {
     const pre = code.parentElement;
     // textContent decodes HTML entities, so citation <a> tags inserted by
-    // applyCitations appear as literal text — strip all HTML before parsing
+    // applyCitations appear as literal text — remove citations entirely
+    // (including their [N] content) then strip any remaining HTML tags
     const def = code.textContent.replace(/\r\n?/g, '\n').trim();
     const sanitized = def
+      .replace(/<a\b[^>]*class=['"]cite-ref['"][^>]*>[\s\S]*?<\/a>/gi, '')
       .replace(/<br\s*\/?>/gi, ' ')
       .replace(/<[^>]+>/g, '');
     const div = document.createElement('div');

@@ -121,9 +121,8 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .thinking span:nth-child(2){animation-delay:.2s;} .thinking span:nth-child(3){animation-delay:.4s;}
 @keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.85)}40%{opacity:1;transform:scale(1)}}
 .msg-error{font-family:var(--mono);font-size:12px;color:var(--red);background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);border-radius:6px;padding:10px 12px;}
-.msg-edit-btn{opacity:0;background:transparent;border:none;cursor:pointer;color:var(--text-faint);padding:2px 4px;border-radius:4px;margin-left:6px;transition:opacity .15s,color .15s;display:inline-flex;align-items:center;vertical-align:middle;}
-.msg.user:hover .msg-edit-btn,.msg-edit-btn:focus{opacity:1;}
-.msg-edit-btn:hover{color:var(--accent);}
+.msg-edit-btn{background:transparent;border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text-faint);font-family:var(--mono);font-size:9px;padding:2px 7px;margin-top:7px;display:inline-flex;align-items:center;gap:4px;transition:color .15s,border-color .15s,background .15s;}
+.msg-edit-btn:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-dim);}
 .msg-edit-wrap{width:100%;}
 .msg-edit-ta{width:100%;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:20px;font-weight:300;padding:10px 12px;line-height:1.6;resize:vertical;min-height:64px;outline:none;box-sizing:border-box;box-shadow:0 0 0 2px var(--accent-dim);}
 .msg-edit-actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end;}
@@ -575,14 +574,6 @@ function buildMsgEl(m, idx) {
   const rl = document.createElement('div');
   rl.className = 'msg-role';
   rl.textContent = m.role==='user'?'You':'Gemini';
-  if (m.role==='user' && idx !== undefined) {
-    const editBtn = document.createElement('button');
-    editBtn.className = 'msg-edit-btn';
-    editBtn.title = '编辑消息';
-    editBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
-    editBtn.onclick = e => { e.stopPropagation(); startEditMsg(idx); };
-    rl.appendChild(editBtn);
-  }
   body.appendChild(rl);
 
   // file attachments display
@@ -611,6 +602,13 @@ function buildMsgEl(m, idx) {
   ct.innerHTML = m.html||'';
   body.appendChild(ct);
   if (m.sources && m.sources.length) body.appendChild(buildSourcesEl(m.sources));
+  if (m.role==='user' && idx !== undefined) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'msg-edit-btn';
+    editBtn.innerHTML = `<svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>编辑`;
+    editBtn.onclick = e => { e.stopPropagation(); startEditMsg(idx); };
+    body.appendChild(editBtn);
+  }
   wrap.appendChild(body);
   return wrap;
 }

@@ -1216,7 +1216,8 @@ async function submitEditMsg(idx) {
 
 // ── Init ──
 function init() {
-  applyTheme(localStorage.getItem('geminichat_theme') || 'light');
+  const savedTheme = localStorage.getItem('geminichat_theme');
+  applyTheme(savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   loadSettings();
   try { sessions = JSON.parse(localStorage.getItem(SK_SESSIONS)||'{}'); } catch(e){ sessions={}; }
   if (!Object.keys(sessions).length) {

@@ -88,7 +88,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .toggle input:checked+.toggle-slider:before{transform:translateX(16px);background:var(--accent);}
 
 /* ── Messages ── */
-#messages{flex:1;overflow-y:auto;padding:28px 0;scroll-behavior:smooth;}
+#messages{flex:1;overflow-y:auto;padding:28px 0 220px;scroll-behavior:smooth;}
 #messages::-webkit-scrollbar{width:5px;}
 #messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 .msg-wrap{max-width:760px;margin:0 auto;padding:0 24px;}
@@ -144,15 +144,16 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .file-chip .chip-icon{font-size:13px;}
 .file-chip.img-chip img{width:240px;height:auto;max-height:200px;object-fit:contain;border-radius:4px;display:block;margin-top:6px;}
 
-/* ── Input panel (right side) ── */
-#input-area{width:360px;min-width:360px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;padding:16px 14px;overflow-y:auto;transition:width .2s ease,min-width .2s ease,padding .2s ease;}
-#input-area.collapsed{width:48px;min-width:48px;padding:12px 8px;}
+/* ── Input floating window ── */
+#input-area{position:fixed;bottom:24px;right:24px;width:380px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:100;transition:all .2s ease;}
+#input-area.collapsed{width:46px;height:46px;border-radius:23px;overflow:hidden;}
 #input-area.collapsed .input-inner{display:none;}
-.input-panel-header{display:flex;align-items:center;justify-content:flex-start;margin-bottom:12px;flex-shrink:0;}
-#input-area.collapsed .input-panel-header{justify-content:center;margin-bottom:0;}
-#input-collapse-btn{background:transparent;border:1px solid var(--border);border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-faint);transition:all .15s;flex-shrink:0;}
-#input-collapse-btn:hover{color:var(--text-dim);background:var(--surface2);}
-.input-inner{}
+.input-panel-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px;flex-shrink:0;}
+#input-area.collapsed .input-panel-header{padding:0;width:46px;height:46px;justify-content:center;}
+#input-collapse-btn{background:transparent;border:none;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-faint);transition:color .15s;flex-shrink:0;}
+#input-collapse-btn:hover{color:var(--accent);}
+#input-area.collapsed #input-collapse-btn{width:46px;height:46px;color:var(--accent);}
+.input-inner{padding:0 12px 12px;}
 #preview-area{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
 
 /* preview cards */
@@ -220,8 +221,10 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
   .msg{gap:10px;padding:12px 0;}
   .msg-content{font-size:20px;}
 
-  #chat-main{flex-direction:column;}
-  #input-area{width:100%;min-width:0;border-left:none;border-top:1px solid var(--border);justify-content:flex-start;padding:8px 10px 12px;}
+  #messages{padding-bottom:180px;}
+  #input-area{position:fixed;bottom:0;right:0;left:0;width:100%;border-radius:0;border:none;border-top:1px solid var(--border);box-shadow:none;}
+  #input-area.collapsed{width:100%;height:auto;border-radius:0;overflow:visible;}
+  #input-area.collapsed .input-inner{display:block;}
   .input-panel-header{display:none;}
   #user-input{font-size:20px;}
   input[type="text"],input[type="password"],select,textarea.sys-ta{font-size:16px;}
@@ -320,9 +323,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
   <!-- Input -->
   <div id="input-area">
     <div class="input-panel-header">
-      <button id="input-collapse-btn" onclick="toggleInputPanel()" title="收起输入框">
-        <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9 2l-5 5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
+      <button id="input-collapse-btn" onclick="toggleInputPanel()" title="收起输入框"></button>
     </div>
     <div class="input-inner">
       <div id="preview-area"></div>
@@ -447,14 +448,15 @@ function toggleConfig() {
   btn.classList.toggle('active', bar.classList.contains('open'));
 }
 
+const _ICON_EXPAND  = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+const _ICON_COLLAPSE = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
 function toggleInputPanel() {
   const area = document.getElementById('input-area');
   const btn  = document.getElementById('input-collapse-btn');
   area.classList.toggle('collapsed');
   const collapsed = area.classList.contains('collapsed');
-  btn.innerHTML = collapsed
-    ? `<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-    : `<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9 2l-5 5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  btn.innerHTML = collapsed ? _ICON_EXPAND : _ICON_COLLAPSE;
   btn.title = collapsed ? '展开输入框' : '收起输入框';
 }
 
@@ -1172,6 +1174,7 @@ async function submitEditMsg(idx) {
 function init() {
   applyTheme(localStorage.getItem('geminichat_theme') || 'light');
   loadSettings();
+  document.getElementById('input-collapse-btn').innerHTML = _ICON_COLLAPSE;
   try { sessions = JSON.parse(localStorage.getItem(SK_SESSIONS)||'{}'); } catch(e){ sessions={}; }
   if (!Object.keys(sessions).length) {
     const id=uid(); sessions[id]={id,title:'新对话',createdAt:Date.now(),messages:[]};

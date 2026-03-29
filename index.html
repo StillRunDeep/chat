@@ -10,6 +10,7 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Noto+Sans+SC:wght@400&display=swap" onload="this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Noto+Sans+SC:wght@400&display=swap"></noscript>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js" defer></script>
 <style>
 :root {
   --bg:#ffffff; --surface:#f6f8fa; --surface2:#eaedf0; --surface3:#d8dde3;
@@ -182,6 +183,10 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 
 /* toast */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface3);border:1px solid var(--border-light);color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:8px 16px;border-radius:6px;z-index:999;animation:fadeUp .2s ease;pointer-events:none;}
+
+/* mermaid */
+.mermaid-wrap{overflow-x:auto;margin:10px 0;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;}
+.mermaid-wrap svg{max-width:100%;height:auto;}
 
 /* upload progress bar */
 .progress-bar{height:2px;background:var(--surface3);border-radius:1px;margin-top:4px;overflow:hidden;}
@@ -460,6 +465,7 @@ const SUN_SVG  = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><c
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   document.getElementById('theme-btn').innerHTML = theme === 'dark' ? SUN_SVG : MOON_SVG;
+  rerenderMermaidTheme();
 }
 function toggleTheme() {
   const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -616,6 +622,7 @@ function buildMsgEl(m, idx) {
   const ct = document.createElement('div');
   ct.className = 'msg-content';
   ct.innerHTML = m.html||'';
+  renderMermaid(ct);
   body.appendChild(ct);
   if (m.sources && m.sources.length) body.appendChild(buildSourcesEl(m.sources));
   wrap.appendChild(body);
@@ -659,6 +666,36 @@ function buildSourcesEl(sources) {
       `<div class="search-source-item"><span class="search-source-num">${i+1}.</span><a class="search-source-link" href="${escHtml(s.uri)}" target="_blank" rel="noopener noreferrer">${escHtml(s.title||s.uri)}</a></div>`
     ).join('');
   return div;
+}
+
+// ── Mermaid ──
+function getMermaidTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
+}
+async function renderMermaid(el) {
+  if (typeof mermaid === 'undefined') return;
+  for (const code of el.querySelectorAll('pre code.language-mermaid')) {
+    const pre = code.parentElement;
+    const def = code.textContent.trim();
+    try {
+      const { svg } = await mermaid.render('mermaid-' + uid(), def);
+      const div = document.createElement('div');
+      div.className = 'mermaid-wrap';
+      div.dataset.src = def;
+      div.innerHTML = svg;
+      pre.replaceWith(div);
+    } catch(e) {}
+  }
+}
+async function rerenderMermaidTheme() {
+  if (typeof mermaid === 'undefined') return;
+  mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
+  for (const div of document.querySelectorAll('.mermaid-wrap[data-src]')) {
+    try {
+      const { svg } = await mermaid.render('mermaid-' + uid(), div.dataset.src);
+      div.innerHTML = svg;
+    } catch(e) {}
+  }
 }
 
 function appendLiveMsg() {
@@ -991,6 +1028,7 @@ async function generateResponse(popUserOnError) {
           }
         }
         if (supports.length) liveCt.innerHTML = marked.parse(applyCitations(fullText, supports, sources));
+        renderMermaid(liveCt);
         if (usedSearch) {
           const b=document.createElement('div'); b.className='search-badge';
           b.innerHTML=`<svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>已联网搜索`;
@@ -1127,6 +1165,12 @@ function init() {
   document.getElementById('topbar-title').textContent = sessions[activeId]?.title||'—';
 }
 init();
+window.addEventListener('load', () => {
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
+    document.querySelectorAll('.msg-content').forEach(renderMermaid);
+  }
+});
 </script>
 </body>
 </html>

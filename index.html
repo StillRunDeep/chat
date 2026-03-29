@@ -121,6 +121,16 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .thinking span:nth-child(2){animation-delay:.2s;} .thinking span:nth-child(3){animation-delay:.4s;}
 @keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.85)}40%{opacity:1;transform:scale(1)}}
 .msg-error{font-family:var(--mono);font-size:12px;color:var(--red);background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);border-radius:6px;padding:10px 12px;}
+.msg-edit-btn{opacity:0;background:transparent;border:none;cursor:pointer;color:var(--text-faint);padding:2px 4px;border-radius:4px;margin-left:6px;transition:opacity .15s,color .15s;display:inline-flex;align-items:center;vertical-align:middle;}
+.msg.user:hover .msg-edit-btn,.msg-edit-btn:focus{opacity:1;}
+.msg-edit-btn:hover{color:var(--accent);}
+.msg-edit-wrap{width:100%;}
+.msg-edit-ta{width:100%;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:20px;font-weight:300;padding:10px 12px;line-height:1.6;resize:vertical;min-height:64px;outline:none;box-sizing:border-box;box-shadow:0 0 0 2px var(--accent-dim);}
+.msg-edit-actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end;}
+.msg-edit-cancel{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:5px 14px;cursor:pointer;transition:background .15s;}
+.msg-edit-cancel:hover{background:var(--surface2);}
+.msg-edit-confirm{background:var(--accent-dim);border:1px solid rgba(126,231,135,.35);border-radius:6px;color:var(--accent);font-family:var(--mono);font-size:11px;padding:5px 14px;cursor:pointer;transition:background .15s;}
+.msg-edit-confirm:hover{background:rgba(126,231,135,.18);}
 #welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--text-faint);}
 #welcome p{font-family:var(--mono);font-size:12px;letter-spacing:.08em;}
 
@@ -545,13 +555,14 @@ function renderMessages() {
     container.style.display = 'none'; welcome.style.display = 'flex'; return;
   }
   welcome.style.display = 'none'; container.style.display = 'block';
-  sess.messages.forEach(m => container.appendChild(buildMsgEl(m)));
+  sess.messages.forEach((m, i) => container.appendChild(buildMsgEl(m, i)));
   scrollBot();
 }
 
-function buildMsgEl(m) {
+function buildMsgEl(m, idx) {
   const wrap = document.createElement('div');
   wrap.className = `msg ${m.role}`;
+  if (idx !== undefined) wrap.dataset.msgIdx = idx;
   const av = document.createElement('div');
   av.className = 'msg-avatar';
   av.textContent = m.role==='user'?'U':'G';
@@ -561,6 +572,14 @@ function buildMsgEl(m) {
   const rl = document.createElement('div');
   rl.className = 'msg-role';
   rl.textContent = m.role==='user'?'You':'Gemini';
+  if (m.role==='user' && idx !== undefined) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'msg-edit-btn';
+    editBtn.title = '编辑消息';
+    editBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
+    editBtn.onclick = e => { e.stopPropagation(); startEditMsg(idx); };
+    rl.appendChild(editBtn);
+  }
   body.appendChild(rl);
 
   // file attachments display
@@ -853,11 +872,20 @@ async function sendMessage() {
   document.getElementById('welcome').style.display = 'none';
   const container = document.getElementById('msg-container');
   container.style.display = 'block';
-  container.appendChild(buildMsgEl({ role:'user', html:userHtml, attachments }));
+  container.appendChild(buildMsgEl({ role:'user', html:userHtml, attachments }, sess.messages.length - 1));
 
   ta.value = ''; ta.style.height = 'auto';
   pendingFiles = [];
   document.getElementById('preview-area').innerHTML = '';
+
+  await generateResponse(true);
+}
+
+// ── Generate response from current session history ──
+async function generateResponse(popUserOnError) {
+  const cfg = getConfig();
+  const sess = sessions[activeId];
+  if (!sess) return;
 
   isGenerating = true;
   document.getElementById('send-btn').disabled = true;
@@ -927,7 +955,8 @@ async function sendMessage() {
       if (meta?.webSearchQueries?.length) usedSearch=true;
       sources = (meta?.groundingChunks||[]).map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
       liveWrap.remove();
-      container.appendChild(buildMsgEl({role:'assistant', html:marked.parse(fullText), usedSearch, sources}));
+      const cont = document.getElementById('msg-container');
+      cont.appendChild(buildMsgEl({role:'assistant', html:marked.parse(fullText), usedSearch, sources}));
       scrollBot();
     }
 
@@ -938,14 +967,89 @@ async function sendMessage() {
 
   } catch(err) {
     liveWrap.remove();
+    const cont = document.getElementById('msg-container');
     const w=document.createElement('div'); w.className='msg assistant';
     w.innerHTML=`<div class="msg-avatar">G</div><div class="msg-body"><div class="msg-role">Gemini</div><div class="msg-error">⚠ ${escHtml(err.message)}</div></div>`;
-    container.appendChild(w); scrollBot();
-    sess.messages.pop(); saveSessions();
+    cont.appendChild(w); scrollBot();
+    if (popUserOnError) { sess.messages.pop(); saveSessions(); }
   } finally {
     isGenerating=false;
     document.getElementById('send-btn').disabled=false;
   }
+}
+
+// ── Edit message ──
+function startEditMsg(idx) {
+  if (isGenerating) return;
+  const el = document.querySelector(`.msg[data-msg-idx="${idx}"]`);
+  if (!el || el.querySelector('.msg-edit-wrap')) return;
+  const ct = el.querySelector('.msg-content');
+  if (!ct) return;
+  const m = sessions[activeId].messages[idx];
+  const origText = (m.parts||[]).find(p=>p.text)?.text || '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-edit-wrap';
+
+  const editTa = document.createElement('textarea');
+  editTa.className = 'msg-edit-ta';
+  editTa.value = origText;
+  editTa.addEventListener('input', ()=>{ editTa.style.height='auto'; editTa.style.height=editTa.scrollHeight+'px'; });
+  editTa.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submitEditMsg(idx);} if(e.key==='Escape'){cancelEditMsg(idx);} });
+
+  const actions = document.createElement('div');
+  actions.className = 'msg-edit-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'msg-edit-cancel';
+  cancelBtn.textContent = '取消';
+  cancelBtn.onclick = () => cancelEditMsg(idx);
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'msg-edit-confirm';
+  confirmBtn.textContent = '重新回答';
+  confirmBtn.onclick = () => submitEditMsg(idx);
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(confirmBtn);
+  wrap.appendChild(editTa);
+  wrap.appendChild(actions);
+  ct.replaceWith(wrap);
+  editTa.focus();
+  editTa.style.height = editTa.scrollHeight + 'px';
+}
+
+function cancelEditMsg(idx) {
+  const el = document.querySelector(`.msg[data-msg-idx="${idx}"]`);
+  if (!el) return;
+  const wrap = el.querySelector('.msg-edit-wrap');
+  if (!wrap) return;
+  const ct = document.createElement('div');
+  ct.className = 'msg-content';
+  ct.innerHTML = sessions[activeId].messages[idx].html || '';
+  wrap.replaceWith(ct);
+}
+
+async function submitEditMsg(idx) {
+  if (isGenerating) return;
+  const el = document.querySelector(`.msg[data-msg-idx="${idx}"]`);
+  if (!el) return;
+  const editTa = el.querySelector('.msg-edit-ta');
+  if (!editTa) return;
+  const newText = editTa.value.trim();
+  if (!newText) return;
+
+  const sess = sessions[activeId];
+  sess.messages[idx] = {
+    role: 'user',
+    parts: [{ text: newText }],
+    html: marked.parse(newText),
+    attachments: sess.messages[idx].attachments || [],
+  };
+  sess.messages.splice(idx + 1); // remove all subsequent messages
+  saveSessions();
+  renderMessages();
+  await generateResponse(false);
 }
 
 // ── Init ──

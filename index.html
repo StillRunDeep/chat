@@ -116,10 +116,12 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .search-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--text-faint);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 9px;margin-bottom:10px;}
 .search-sources{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
 .search-sources-label{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:5px;}
-.search-source-item{display:flex;align-items:baseline;gap:5px;margin:3px 0;overflow:hidden;}
-.search-source-num{font-family:var(--mono);font-size:9px;color:var(--text-faint);flex-shrink:0;}
-.search-source-link{font-family:var(--mono);font-size:11px;color:var(--blue);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.search-source-item{display:flex;align-items:flex-start;gap:6px;margin:5px 0;overflow:hidden;}
+.search-source-num{font-family:var(--mono);font-size:10px;color:var(--text-faint);flex-shrink:0;padding-top:1px;}
+.search-source-body{display:flex;flex-direction:column;min-width:0;}
+.search-source-link{font-size:13px;color:var(--blue);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;}
 .search-source-link:hover{text-decoration:underline;}
+.search-source-domain{font-family:var(--mono);font-size:10px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
 .thinking{display:flex;gap:5px;align-items:center;padding:4px 0;}
 .thinking span{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:blink 1.2s infinite;opacity:.3;}
 .thinking span:nth-child(2){animation-delay:.2s;} .thinking span:nth-child(3){animation-delay:.4s;}
@@ -671,10 +673,37 @@ function applyCitations(text, supports, sources) {
 function buildSourcesEl(sources) {
   const div = document.createElement('div');
   div.className = 'search-sources';
-  div.innerHTML = `<div class="search-sources-label">数据来源</div>` +
-    sources.map((s,i) =>
-      `<div class="search-source-item"><span class="search-source-num">${i+1}.</span><a class="search-source-link" href="${escHtml(s.uri)}" target="_blank" rel="noopener noreferrer">${escHtml(s.title||s.uri)}</a></div>`
-    ).join('');
+  const label = document.createElement('div');
+  label.className = 'search-sources-label';
+  label.textContent = '数据来源';
+  div.appendChild(label);
+  sources.forEach((s, i) => {
+    let domain = '';
+    try { domain = new URL(s.uri).hostname.replace(/^www\./, ''); } catch {}
+    const item = document.createElement('div');
+    item.className = 'search-source-item';
+    const num = document.createElement('span');
+    num.className = 'search-source-num';
+    num.textContent = `${i+1}.`;
+    const body = document.createElement('div');
+    body.className = 'search-source-body';
+    const link = document.createElement('a');
+    link.className = 'search-source-link';
+    link.href = s.uri;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = s.title || s.uri;
+    body.appendChild(link);
+    if (domain) {
+      const d = document.createElement('span');
+      d.className = 'search-source-domain';
+      d.textContent = domain;
+      body.appendChild(d);
+    }
+    item.appendChild(num);
+    item.appendChild(body);
+    div.appendChild(item);
+  });
   return div;
 }
 

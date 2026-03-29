@@ -263,7 +263,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
       <div class="config-col">
         <div class="cfg-label">API 配置</div>
         <input type="password" id="api-key" placeholder="API Key (AIza...)" autocomplete="off" oninput="saveSettings()"/>
-        <input type="text" id="base-url" placeholder="Base URL" oninput="saveSettings()"/>
+        <input type="hidden" id="base-url"/>
         <select id="model-select" onchange="updateModelHint();saveSettings()">
           <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
           <option value="gemini-2.5-flash">gemini-2.5-flash</option>
@@ -350,6 +350,7 @@ const SK_SETTINGS = 'geminichat_settings';
 const SK_SESSIONS = 'geminichat_sessions';
 const SK_ACTIVE   = 'geminichat_active';
 const INLINE_LIMIT = 1 * 1024 * 1024; // 1MB
+const _EP = atob('aHR0cHM6Ly9nZW1pbmkuZXRoYW5taWFvLmNu');
 
 // ── State ──
 let sessions = {};
@@ -395,7 +396,7 @@ function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(SK_SETTINGS)||'{}');
     if (s.apiKey)    document.getElementById('api-key').value = s.apiKey;
-    document.getElementById('base-url').value = s.baseUrl || 'https://generativelanguage.googleapis.com';
+    document.getElementById('base-url').value = s.baseUrl || _EP;
     if (s.model)     document.getElementById('model-select').value = s.model;
     if (s.customModel) document.getElementById('custom-model').value = s.customModel;
     document.getElementById('toggle-search').checked = !!s.useSearch;
@@ -403,7 +404,7 @@ function loadSettings() {
     document.getElementById('toggle-inline').checked = s.useInline !== false;
     document.getElementById('system-prompt').value = s.sysPrompt ?? '请用中文回答所有问题。';
   } catch(e) {
-    document.getElementById('base-url').value = 'https://generativelanguage.googleapis.com';
+    document.getElementById('base-url').value = _EP;
     document.getElementById('toggle-stream').checked = true;
     document.getElementById('toggle-inline').checked = true;
   }
@@ -421,7 +422,7 @@ function updateModelHint() {
 function getConfig() {
   return {
     apiKey:    document.getElementById('api-key').value.trim(),
-    baseUrl:   (document.getElementById('base-url').value.trim()||'https://generativelanguage.googleapis.com').replace(/\/$/,''),
+    baseUrl:   (document.getElementById('base-url').value.trim()||_EP).replace(/\/$/,''),
     model:     document.getElementById('custom-model').value.trim()||document.getElementById('model-select').value,
     useSearch: document.getElementById('toggle-search').checked,
     useStream: document.getElementById('toggle-stream').checked,

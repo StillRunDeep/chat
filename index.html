@@ -935,7 +935,9 @@ const inputArea = document.getElementById('input-area');
 inputArea.addEventListener('click', e => { if (!inputArea.classList.contains('expanded')) expandInputPanel(); });
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (document.activeElement === document.getElementById('user-input')) return;
+  const active = document.activeElement;
+  if (active === document.getElementById('user-input')) return;
+  if (active && active.classList.contains('msg-edit-ta')) return;
   if (e.key.length === 1) { expandInputPanel(); setTimeout(() => { const t=document.getElementById('user-input'); t.focus(); t.value+=e.key; t.dispatchEvent(new Event('input')); }, 35); }
 });
 document.getElementById('input-collapse-btn').addEventListener('click', e => { e.stopPropagation(); collapseInputPanel(); });

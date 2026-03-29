@@ -679,7 +679,16 @@ function buildSourcesEl(sources) {
   div.appendChild(label);
   sources.forEach((s, i) => {
     let domain = '';
-    try { domain = new URL(s.uri).hostname.replace(/^www\./, ''); } catch {}
+    try {
+      const host = new URL(s.uri).hostname;
+      const isRedirect = host.includes('vertexaisearch.cloud.google.com') || host.endsWith('.googleapis.com');
+      if (!isRedirect) domain = host.replace(/^www\./, '');
+    } catch {}
+    // If title looks like a domain itself (no spaces) and we have no real domain, show title as domain badge
+    const titleIsDomain = s.title && !s.title.includes(' ');
+    const displayTitle = (!titleIsDomain && s.title) ? s.title : null;
+    const displayDomain = domain || (titleIsDomain ? s.title : '');
+
     const item = document.createElement('div');
     item.className = 'search-source-item';
     const num = document.createElement('span');
@@ -692,12 +701,12 @@ function buildSourcesEl(sources) {
     link.href = s.uri;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = s.title || s.uri;
+    link.textContent = displayTitle || displayDomain || s.uri;
     body.appendChild(link);
-    if (domain) {
+    if (displayTitle && displayDomain) {
       const d = document.createElement('span');
       d.className = 'search-source-domain';
-      d.textContent = domain;
+      d.textContent = displayDomain;
       body.appendChild(d);
     }
     item.appendChild(num);

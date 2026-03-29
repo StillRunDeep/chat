@@ -6,8 +6,10 @@
 <title>Gemini Chat</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%234285f4'/%3E%3Cstop offset='50%25' stop-color='%238ab4f8'/%3E%3Cstop offset='100%25' stop-color='%2300bcd4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M50 5 C50 5 55 45 95 50 C55 55 50 95 50 95 C50 95 45 55 5 50 C45 45 50 5 50 5 Z' fill='url(%23g)'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Noto+Sans+SC:wght@400&display=swap" onload="this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Noto+Sans+SC:wght@400&display=swap"></noscript>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
 <style>
 :root {
   --bg:#ffffff; --surface:#f6f8fa; --surface2:#eaedf0; --surface3:#d8dde3;
@@ -15,7 +17,7 @@
   --accent:#1a7f37; --accent-dim:rgba(26,127,55,.1); --accent-glow:rgba(26,127,55,.2);
   --blue:#0969da; --yellow:#9a6700; --red:#cf222e; --purple:#8250df; --orange:#bc4c00;
   --text:#1f2328; --text-dim:#656d76; --text-faint:#9198a1;
-  --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans SC',sans-serif;
+  --mono:'IBM Plex Mono',monospace; --sans:'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
 }
 [data-theme="dark"] {
   --bg:#0c0d0f; --surface:#13151a; --surface2:#1a1d24; --surface3:#21252e;

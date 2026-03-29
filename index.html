@@ -655,11 +655,22 @@ function utf8ByteToCharIdx(str, byteOffset) {
 
 function applyCitations(text, supports, sources) {
   if (!supports?.length || !sources?.length) return text;
+
+  // Build fenced code block ranges so we never inject citations inside them
+  const codeRanges = [];
+  const fenceRe = /^(`{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*$/gm;
+  let fm;
+  while ((fm = fenceRe.exec(text)) !== null) {
+    codeRanges.push([fm.index, fm.index + fm[0].length]);
+  }
+  const inCode = pos => codeRanges.some(([a, b]) => pos > a && pos <= b);
+
   const valid = supports
     .filter(s => s.segment?.endIndex !== undefined && s.groundingChunkIndices?.length)
     .sort((a, b) => b.segment.endIndex - a.segment.endIndex);
   for (const s of valid) {
     const end = utf8ByteToCharIdx(text, s.segment.endIndex);
+    if (inCode(end)) continue;
     const indices = s.groundingChunkIndices.filter(i => i < sources.length && sources[i]?.uri);
     if (!indices.length) continue;
     const marks = indices.map(i =>
@@ -730,12 +741,9 @@ async function renderMermaid(el) {
   initMermaid();
   for (const code of el.querySelectorAll('pre code.language-mermaid')) {
     const pre = code.parentElement;
-    // textContent decodes HTML entities, so citation <a> tags inserted by
-    // applyCitations appear as literal text — remove citations entirely
-    // (including their [N] content) then strip any remaining HTML tags
+    // Strip any residual HTML that may have leaked into the code block
     const def = code.textContent.replace(/\r\n?/g, '\n').trim();
     const sanitized = def
-      .replace(/<a\b[^>]*class=['"]cite-ref['"][^>]*>[\s\S]*?<\/a>/gi, '')
       .replace(/<br\s*\/?>/gi, ' ')
       .replace(/<[^>]+>/g, '');
     const div = document.createElement('div');

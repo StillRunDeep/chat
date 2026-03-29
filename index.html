@@ -569,7 +569,11 @@ function renderMessages() {
     welcome.style.display = 'flex'; return;
   }
   welcome.style.display = 'none'; container.style.display = 'block';
-  sess.messages.forEach((m, i) => container.appendChild(buildMsgEl(m, i)));
+  sess.messages.forEach((m, i) => {
+    const el = buildMsgEl(m, i);
+    container.appendChild(el);
+    renderMermaid(el.querySelector('.msg-content'));
+  });
   scrollBot();
 }
 
@@ -622,7 +626,6 @@ function buildMsgEl(m, idx) {
   const ct = document.createElement('div');
   ct.className = 'msg-content';
   ct.innerHTML = m.html||'';
-  renderMermaid(ct);
   body.appendChild(ct);
   if (m.sources && m.sources.length) body.appendChild(buildSourcesEl(m.sources));
   wrap.appendChild(body);
@@ -1056,7 +1059,9 @@ async function generateResponse(popUserOnError) {
         liveWrap.remove();
         const cont = document.getElementById('msg-container');
         const citedHtml = marked.parse(applyCitations(fullText, supports, sources));
-        cont.appendChild(buildMsgEl({role:'assistant', html:citedHtml, usedSearch, sources}));
+        const msgEl = buildMsgEl({role:'assistant', html:citedHtml, usedSearch, sources});
+        cont.appendChild(msgEl);
+        renderMermaid(msgEl.querySelector('.msg-content'));
         scrollBot();
       }
 

@@ -458,6 +458,7 @@ function toggleConfig() {
 function expandInputPanel() {
   if (window.innerWidth <= 640) return;
   document.getElementById('input-area').classList.add('expanded');
+  setTimeout(() => document.getElementById('user-input').focus(), 30);
 }
 function collapseInputPanel() {
   if (window.innerWidth <= 640) return;
@@ -903,6 +904,11 @@ function removePending(id) {
 // ── Input panel expand/collapse ──
 const inputArea = document.getElementById('input-area');
 inputArea.addEventListener('click', e => { if (!inputArea.classList.contains('expanded')) expandInputPanel(); });
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (document.activeElement === document.getElementById('user-input')) return;
+  if (e.key.length === 1) { expandInputPanel(); setTimeout(() => { const t=document.getElementById('user-input'); t.focus(); t.value+=e.key; t.dispatchEvent(new Event('input')); }, 35); }
+});
 document.getElementById('input-collapse-btn').addEventListener('click', e => { e.stopPropagation(); collapseInputPanel(); });
 
 // ── Drag & Drop ──

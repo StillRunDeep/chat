@@ -95,7 +95,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .msg.user .msg-avatar{background:var(--surface3);color:var(--blue);border:1px solid var(--border-light);}
 .msg.assistant .msg-avatar{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(126,231,135,.3);}
 .msg-body{flex:1;min-width:0;}
-.msg-role{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
+.msg-role{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;display:flex;align-items:center;gap:4px;}
 .msg-content{font-size:20px;line-height:1.8;color:var(--text);}
 .msg-content p{margin-bottom:10px;} .msg-content p:last-child{margin-bottom:0;}
 .msg-content code{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--yellow);}
@@ -122,8 +122,10 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .thinking span:nth-child(2){animation-delay:.2s;} .thinking span:nth-child(3){animation-delay:.4s;}
 @keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.85)}40%{opacity:1;transform:scale(1)}}
 .msg-error{font-family:var(--mono);font-size:12px;color:var(--red);background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);border-radius:6px;padding:10px 12px;}
-.msg-edit-btn{background:transparent;border:none;cursor:pointer;color:var(--text-faint);padding:0 0 0 5px;display:inline-flex;align-items:center;vertical-align:middle;transition:color .15s;}
+.msg-edit-btn{background:transparent;border:none;cursor:pointer;color:var(--text-faint);padding:0;display:inline-flex;align-items:center;transition:color .15s;}
 .msg-edit-btn:hover{color:var(--accent);}
+.cite-ref{font-family:var(--mono);font-size:9px;color:var(--blue);text-decoration:none;vertical-align:super;line-height:0;}
+.cite-ref:hover{text-decoration:underline;}
 .msg-edit-wrap{width:100%;}
 .msg-edit-ta{width:100%;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:20px;font-weight:300;padding:10px 12px;line-height:1.6;resize:vertical;min-height:64px;outline:none;box-sizing:border-box;box-shadow:0 0 0 2px var(--accent-dim);}
 .msg-edit-actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end;}
@@ -575,7 +577,17 @@ function buildMsgEl(m, idx) {
   body.className = 'msg-body';
   const rl = document.createElement('div');
   rl.className = 'msg-role';
-  rl.textContent = m.role==='user'?'You':'Gemini';
+  const rlText = document.createElement('span');
+  rlText.textContent = m.role==='user'?'You':'Gemini';
+  rl.appendChild(rlText);
+  if (m.role==='user' && idx !== undefined) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'msg-edit-btn';
+    editBtn.title = '编辑消息';
+    editBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
+    editBtn.onclick = e => { e.stopPropagation(); startEditMsg(idx); };
+    rl.appendChild(editBtn);
+  }
   body.appendChild(rl);
 
   // file attachments display
@@ -602,18 +614,27 @@ function buildMsgEl(m, idx) {
   const ct = document.createElement('div');
   ct.className = 'msg-content';
   ct.innerHTML = m.html||'';
-  if (m.role==='user' && idx !== undefined) {
-    const editBtn = document.createElement('button');
-    editBtn.className = 'msg-edit-btn';
-    editBtn.title = '编辑消息';
-    editBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
-    editBtn.onclick = e => { e.stopPropagation(); startEditMsg(idx); };
-    ct.appendChild(editBtn);
-  }
   body.appendChild(ct);
   if (m.sources && m.sources.length) body.appendChild(buildSourcesEl(m.sources));
   wrap.appendChild(body);
   return wrap;
+}
+
+function applyCitations(text, supports, sources) {
+  if (!supports?.length || !sources?.length) return text;
+  const valid = supports
+    .filter(s => s.segment?.endIndex !== undefined && s.groundingChunkIndices?.length)
+    .sort((a, b) => b.segment.endIndex - a.segment.endIndex);
+  for (const s of valid) {
+    const end = s.segment.endIndex;
+    const indices = s.groundingChunkIndices.filter(i => i < sources.length && sources[i]?.uri);
+    if (!indices.length) continue;
+    const marks = indices.map(i =>
+      `<a href="${escHtml(sources[i].uri)}" target="_blank" rel="noopener noreferrer" class="cite-ref">[${i+1}]</a>`
+    ).join('');
+    text = text.slice(0, end) + marks + text.slice(end);
+  }
+  return text;
 }
 
 function buildSourcesEl(sources) {
@@ -920,6 +941,7 @@ async function generateResponse(popUserOnError) {
     let fullText = '';
     let usedSearch = false;
     let sources = [];
+    let supports = [];
 
     if (cfg.useStream) {
       const reader = res.body.getReader();
@@ -942,9 +964,11 @@ async function generateResponse(popUserOnError) {
             const meta = chunk.candidates?.[0]?.groundingMetadata;
             if (meta?.webSearchQueries?.length) usedSearch=true;
             if (meta?.groundingChunks?.length) sources = meta.groundingChunks.map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
+            if (meta?.groundingSupports?.length) supports = meta.groundingSupports;
           } catch {}
         }
       }
+      if (supports.length) liveCt.innerHTML = marked.parse(applyCitations(fullText, supports, sources));
       if (usedSearch) {
         const b=document.createElement('div'); b.className='search-badge';
         b.innerHTML=`<svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>已联网搜索`;
@@ -958,14 +982,17 @@ async function generateResponse(popUserOnError) {
       const meta = cand?.groundingMetadata;
       if (meta?.webSearchQueries?.length) usedSearch=true;
       sources = (meta?.groundingChunks||[]).map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
+      supports = meta?.groundingSupports||[];
       liveWrap.remove();
       const cont = document.getElementById('msg-container');
-      cont.appendChild(buildMsgEl({role:'assistant', html:marked.parse(fullText), usedSearch, sources}));
+      const citedHtml = marked.parse(applyCitations(fullText, supports, sources));
+      cont.appendChild(buildMsgEl({role:'assistant', html:citedHtml, usedSearch, sources}));
       scrollBot();
     }
 
     liveWrap.removeAttribute('id');
-    const aMsg = {role:'assistant', parts:[{text:fullText}], html:marked.parse(fullText), usedSearch, sources};
+    const citedFull = marked.parse(applyCitations(fullText, supports, sources));
+    const aMsg = {role:'assistant', parts:[{text:fullText}], html:citedFull, usedSearch, sources};
     sess.messages.push(aMsg);
     saveSessions(); renderSessionList();
 

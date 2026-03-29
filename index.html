@@ -552,7 +552,10 @@ function renderMessages() {
   container.innerHTML = '';
   const sess = sessions[activeId];
   if (!sess || !sess.messages.length) {
-    container.style.display = 'none'; welcome.style.display = 'flex'; return;
+    container.style.display = 'none';
+    const hasKey = !!document.getElementById('api-key').value.trim();
+    welcome.querySelector('p').textContent = hasKey ? '你好呀' : '点击右上角 ⚙ 填写 API Key，然后开始对话';
+    welcome.style.display = 'flex'; return;
   }
   welcome.style.display = 'none'; container.style.display = 'block';
   sess.messages.forEach((m, i) => container.appendChild(buildMsgEl(m, i)));

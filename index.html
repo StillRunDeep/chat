@@ -932,95 +932,111 @@ async function generateResponse(popUserOnError) {
   const apiHistory = sess.messages.map(m => ({ role: m.role==='assistant'?'model':m.role, parts: m.parts }));
   const {wrap:liveWrap, body:liveBody, ct:liveCt} = appendLiveMsg();
 
-  try {
-    const reqBody = { contents: apiHistory };
-    if (cfg.sysPrompt) reqBody.systemInstruction = { parts:[{text:cfg.sysPrompt}] };
-    if (cfg.useSearch) reqBody.tools = [{ googleSearch:{} }];
+  const MAX_RETRIES = 2;
+  let lastErr;
 
-    const endpoint = cfg.useStream
-      ? `${cfg.baseUrl}/v1beta/models/${cfg.model}:streamGenerateContent?alt=sse&key=${cfg.apiKey}`
-      : `${cfg.baseUrl}/v1beta/models/${cfg.model}:generateContent?key=${cfg.apiKey}`;
-
-    const res = await fetch(endpoint, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(reqBody),
-    });
-
-    if (!res.ok) {
-      const e = await res.json().catch(()=>({}));
-      throw new Error(e?.error?.message||`HTTP ${res.status}`);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      liveCt.innerHTML = `<div class="thinking"><span></span><span></span><span></span></div><span style="font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-left:8px;">网络重试 ${attempt}/${MAX_RETRIES}…</span>`;
+      await new Promise(r => setTimeout(r, 1000 * attempt));
     }
+    try {
+      const reqBody = { contents: apiHistory };
+      if (cfg.sysPrompt) reqBody.systemInstruction = { parts:[{text:cfg.sysPrompt}] };
+      if (cfg.useSearch) reqBody.tools = [{ googleSearch:{} }];
 
-    let fullText = '';
-    let usedSearch = false;
-    let sources = [];
-    let supports = [];
+      const endpoint = cfg.useStream
+        ? `${cfg.baseUrl}/v1beta/models/${cfg.model}:streamGenerateContent?alt=sse&key=${cfg.apiKey}`
+        : `${cfg.baseUrl}/v1beta/models/${cfg.model}:generateContent?key=${cfg.apiKey}`;
 
-    if (cfg.useStream) {
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '';
-      liveCt.innerHTML = '';
-      while (true) {
-        const {done,value} = await reader.read();
-        if (done) break;
-        buf += dec.decode(value,{stream:true});
-        const lines = buf.split('\n'); buf = lines.pop();
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const raw = line.slice(6).trim();
-          if (raw==='[DONE]') continue;
-          try {
-            const chunk = JSON.parse(raw);
-            const part = chunk.candidates?.[0]?.content?.parts?.[0];
-            if (part?.text) { fullText+=part.text; liveCt.innerHTML=marked.parse(fullText); scrollBot(); }
-            const meta = chunk.candidates?.[0]?.groundingMetadata;
-            if (meta?.webSearchQueries?.length) usedSearch=true;
-            if (meta?.groundingChunks?.length) sources = meta.groundingChunks.map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
-            if (meta?.groundingSupports?.length) supports = meta.groundingSupports;
-          } catch {}
+      const res = await fetch(endpoint, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(reqBody),
+      });
+
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error(e?.error?.message||`HTTP ${res.status}`);
+      }
+
+      let fullText = '';
+      let usedSearch = false;
+      let sources = [];
+      let supports = [];
+
+      if (cfg.useStream) {
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        liveCt.innerHTML = '';
+        while (true) {
+          const {done,value} = await reader.read();
+          if (done) break;
+          buf += dec.decode(value,{stream:true});
+          const lines = buf.split('\n'); buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw==='[DONE]') continue;
+            try {
+              const chunk = JSON.parse(raw);
+              const part = chunk.candidates?.[0]?.content?.parts?.[0];
+              if (part?.text) { fullText+=part.text; liveCt.innerHTML=marked.parse(fullText); scrollBot(); }
+              const meta = chunk.candidates?.[0]?.groundingMetadata;
+              if (meta?.webSearchQueries?.length) usedSearch=true;
+              if (meta?.groundingChunks?.length) sources = meta.groundingChunks.map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
+              if (meta?.groundingSupports?.length) supports = meta.groundingSupports;
+            } catch {}
+          }
         }
+        if (supports.length) liveCt.innerHTML = marked.parse(applyCitations(fullText, supports, sources));
+        if (usedSearch) {
+          const b=document.createElement('div'); b.className='search-badge';
+          b.innerHTML=`<svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>已联网搜索`;
+          liveBody.insertBefore(b,liveCt);
+        }
+        if (sources.length) liveBody.appendChild(buildSourcesEl(sources));
+      } else {
+        const data = await res.json();
+        const cand = data.candidates?.[0];
+        fullText = cand?.content?.parts?.map(p=>p.text||'').join('')||'';
+        const meta = cand?.groundingMetadata;
+        if (meta?.webSearchQueries?.length) usedSearch=true;
+        sources = (meta?.groundingChunks||[]).map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
+        supports = meta?.groundingSupports||[];
+        liveWrap.remove();
+        const cont = document.getElementById('msg-container');
+        const citedHtml = marked.parse(applyCitations(fullText, supports, sources));
+        cont.appendChild(buildMsgEl({role:'assistant', html:citedHtml, usedSearch, sources}));
+        scrollBot();
       }
-      if (supports.length) liveCt.innerHTML = marked.parse(applyCitations(fullText, supports, sources));
-      if (usedSearch) {
-        const b=document.createElement('div'); b.className='search-badge';
-        b.innerHTML=`<svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>已联网搜索`;
-        liveBody.insertBefore(b,liveCt);
-      }
-      if (sources.length) liveBody.appendChild(buildSourcesEl(sources));
-    } else {
-      const data = await res.json();
-      const cand = data.candidates?.[0];
-      fullText = cand?.content?.parts?.map(p=>p.text||'').join('')||'';
-      const meta = cand?.groundingMetadata;
-      if (meta?.webSearchQueries?.length) usedSearch=true;
-      sources = (meta?.groundingChunks||[]).map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
-      supports = meta?.groundingSupports||[];
-      liveWrap.remove();
-      const cont = document.getElementById('msg-container');
-      const citedHtml = marked.parse(applyCitations(fullText, supports, sources));
-      cont.appendChild(buildMsgEl({role:'assistant', html:citedHtml, usedSearch, sources}));
-      scrollBot();
+
+      liveWrap.removeAttribute('id');
+      const citedFull = marked.parse(applyCitations(fullText, supports, sources));
+      const aMsg = {role:'assistant', parts:[{text:fullText}], html:citedFull, usedSearch, sources};
+      sess.messages.push(aMsg);
+      saveSessions(); renderSessionList();
+      lastErr = null;
+      break; // success
+
+    } catch(err) {
+      lastErr = err;
+      // Only retry on network-level errors (TypeError: Load failed / Failed to fetch)
+      if (!(err instanceof TypeError) || attempt >= MAX_RETRIES) break;
     }
+  }
 
-    liveWrap.removeAttribute('id');
-    const citedFull = marked.parse(applyCitations(fullText, supports, sources));
-    const aMsg = {role:'assistant', parts:[{text:fullText}], html:citedFull, usedSearch, sources};
-    sess.messages.push(aMsg);
-    saveSessions(); renderSessionList();
-
-  } catch(err) {
+  if (lastErr) {
     liveWrap.remove();
     const cont = document.getElementById('msg-container');
     const w=document.createElement('div'); w.className='msg assistant';
-    w.innerHTML=`<div class="msg-avatar">G</div><div class="msg-body"><div class="msg-role">Gemini</div><div class="msg-error">⚠ ${escHtml(err.message)}</div></div>`;
+    w.innerHTML=`<div class="msg-avatar">G</div><div class="msg-body"><div class="msg-role">Gemini</div><div class="msg-error">⚠ ${escHtml(lastErr.message)}</div></div>`;
     cont.appendChild(w); scrollBot();
     if (popUserOnError) { sess.messages.pop(); saveSessions(); }
-  } finally {
-    isGenerating=false;
-    document.getElementById('send-btn').disabled=false;
   }
+  isGenerating=false;
+  document.getElementById('send-btn').disabled=false;
 }
 
 // ── Edit message ──

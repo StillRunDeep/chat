@@ -685,9 +685,12 @@ async function renderMermaid(el) {
   initMermaid();
   for (const code of el.querySelectorAll('pre code.language-mermaid')) {
     const pre = code.parentElement;
+    // textContent decodes HTML entities, so citation <a> tags inserted by
+    // applyCitations appear as literal text — strip all HTML before parsing
     const def = code.textContent.replace(/\r\n?/g, '\n').trim();
-    // sanitize: replace <br> tags inside labels with a space
-    const sanitized = def.replace(/<br\s*\/?>/gi, ' ');
+    const sanitized = def
+      .replace(/<br\s*\/?>/gi, ' ')
+      .replace(/<[^>]+>/g, '');
     const div = document.createElement('div');
     div.className = 'mermaid-wrap';
     div.dataset.src = sanitized;

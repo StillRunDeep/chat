@@ -622,13 +622,25 @@ function buildMsgEl(m, idx) {
   return wrap;
 }
 
+function utf8ByteToCharIdx(str, byteOffset) {
+  let charIdx = 0, bytes = 0;
+  while (charIdx < str.length && bytes < byteOffset) {
+    const code = str.codePointAt(charIdx);
+    if (code > 0xFFFF) { bytes += 4; charIdx += 2; }
+    else if (code > 0x7FF) { bytes += 3; charIdx += 1; }
+    else if (code > 0x7F)  { bytes += 2; charIdx += 1; }
+    else                    { bytes += 1; charIdx += 1; }
+  }
+  return charIdx;
+}
+
 function applyCitations(text, supports, sources) {
   if (!supports?.length || !sources?.length) return text;
   const valid = supports
     .filter(s => s.segment?.endIndex !== undefined && s.groundingChunkIndices?.length)
     .sort((a, b) => b.segment.endIndex - a.segment.endIndex);
   for (const s of valid) {
-    const end = s.segment.endIndex;
+    const end = utf8ByteToCharIdx(text, s.segment.endIndex);
     const indices = s.groundingChunkIndices.filter(i => i < sources.length && sources[i]?.uri);
     if (!indices.length) continue;
     const marks = indices.map(i =>

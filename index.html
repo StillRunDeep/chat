@@ -657,31 +657,7 @@ function utf8ByteToCharIdx(str, byteOffset) {
   return charIdx;
 }
 
-function applyCitations(text, supports, sources) {
-  if (!supports?.length || !sources?.length) return text;
-
-  // Build fenced code block ranges so we never inject citations inside them
-  const codeRanges = [];
-  const fenceRe = /^(`{3,})[^\n]*\n[\s\S]*?\n\1[ \t]*$/gm;
-  let fm;
-  while ((fm = fenceRe.exec(text)) !== null) {
-    codeRanges.push([fm.index, fm.index + fm[0].length]);
-  }
-  const inCode = pos => codeRanges.some(([a, b]) => pos > a && pos <= b);
-
-  const valid = supports
-    .filter(s => s.segment?.endIndex !== undefined && s.groundingChunkIndices?.length)
-    .sort((a, b) => b.segment.endIndex - a.segment.endIndex);
-  for (const s of valid) {
-    const end = utf8ByteToCharIdx(text, s.segment.endIndex);
-    if (inCode(end)) continue;
-    const indices = s.groundingChunkIndices.filter(i => i < sources.length && sources[i]?.uri);
-    if (!indices.length) continue;
-    const marks = indices.map(i =>
-      `<a href="${escHtml(sources[i].uri)}" target="_blank" rel="noopener noreferrer" class="cite-ref">[${i+1}]</a>`
-    ).join('');
-    text = text.slice(0, end) + marks + text.slice(end);
-  }
+function applyCitations(text) {
   return text;
 }
 

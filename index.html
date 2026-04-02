@@ -341,7 +341,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
     <div class="input-inner">
       <div id="preview-area"></div>
       <div class="input-box">
-        <textarea id="user-input" rows="1" placeholder="输入消息… (双击 Enter 发送 · Shift+Enter 换行)"></textarea>
+        <textarea id="user-input" rows="1" placeholder="输入消息… (双击 Enter 发送)"></textarea>
         <div class="input-actions">
           <button class="icon-btn" title="上传文件" onclick="document.getElementById('file-input').click()">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -361,7 +361,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
       </div>
       <div class="input-hint">
         <span id="model-hint" style="color:var(--accent);opacity:.7"></span>
-        <span>Enter 发送 · Shift+Enter 换行</span>
+        <span>双击 Enter 发送</span>
       </div>
     </div>
   </div>
@@ -963,7 +963,7 @@ const ta = document.getElementById('user-input');
 ta.addEventListener('input', ()=>{ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,160)+'px';});
 let lastEnterTime = 0;
 ta.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+  if (e.key === 'Enter' && !e.isComposing) {
     const now = Date.now();
     if (now - lastEnterTime < 500) {
       e.preventDefault();

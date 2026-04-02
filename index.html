@@ -1095,7 +1095,7 @@ async function generateResponse(popUserOnError) {
             try {
               const chunk = JSON.parse(raw);
               const part = chunk.candidates?.[0]?.content?.parts?.[0];
-              if (part?.text) { fullText+=part.text; liveCt.innerHTML=marked.parse(fullText); scrollBot(); }
+              if (part?.text) { fullText+=part.text; liveCt.innerHTML=marked.parse(fullText); }
               const meta = chunk.candidates?.[0]?.groundingMetadata;
               if (meta?.webSearchQueries?.length) usedSearch=true;
               if (meta?.groundingChunks?.length) sources = meta.groundingChunks.map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);

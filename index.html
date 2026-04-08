@@ -151,17 +151,11 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .file-chip.img-chip img{width:240px;height:auto;max-height:200px;object-fit:contain;border-radius:4px;display:block;margin-top:6px;}
 
 /* ── Input floating window ── */
-#input-area{position:fixed;bottom:24px;right:24px;width:46px;height:46px;border-radius:23px;overflow:hidden;background:var(--surface);border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:100;cursor:pointer;}
-#input-area.expanded{bottom:0;right:0;left:220px;width:auto;height:auto;border-radius:14px 14px 0 0;overflow:visible;border:none;border-top:1px solid var(--border);box-shadow:0 -2px 20px rgba(0,0,0,.08);cursor:default;animation:panelUp .18s ease;}
-@keyframes panelUp{from{transform:translateY(10px);opacity:.6}to{transform:translateY(0);opacity:1}}
-.input-fab{width:46px;height:46px;display:flex;align-items:center;justify-content:center;color:var(--accent);}
-#input-area.expanded .input-fab{display:none;}
+#input-area{position:fixed;bottom:0;right:0;left:220px;width:auto;height:auto;border-radius:14px 14px 0 0;overflow:visible;background:var(--surface);border:none;border-top:1px solid var(--border);box-shadow:0 -2px 20px rgba(0,0,0,.08);z-index:100;cursor:default;}
+.input-fab{display:none;}
 .input-panel-header{display:none;}
-#input-area.expanded .input-panel-header{display:flex;align-items:center;justify-content:flex-end;padding:8px 20px 2px;}
-#input-collapse-btn{background:transparent;border:none;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-faint);transition:color .15s;}
-#input-collapse-btn:hover{color:var(--accent);}
-#input-area .input-inner{display:none;}
-#input-area.expanded .input-inner{display:block;max-width:760px;margin:0 auto;padding:0 24px 16px;}
+#input-collapse-btn{display:none;}
+#input-area .input-inner{display:block;max-width:760px;margin:0 auto;padding:0 24px 16px;}
 #preview-area{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
 
 /* preview cards */
@@ -230,10 +224,9 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
   .msg-content{font-size:20px;}
 
   #messages{padding-bottom:180px;}
-  #input-area,#input-area.expanded{left:0;right:0;bottom:0;width:100%;height:auto;border-radius:0;border:none;border-top:1px solid var(--border);box-shadow:none;overflow:visible;cursor:default;animation:none;}
+  #input-area{left:0;right:0;bottom:0;width:100%;height:auto;border-radius:0;border:none;border-top:1px solid var(--border);box-shadow:none;overflow:visible;cursor:default;}
   .input-fab{display:none;}
-  #input-area .input-inner,#input-area.expanded .input-inner{display:block;max-width:none;padding:8px 12px 12px;}
-  .input-panel-header,#input-area.expanded .input-panel-header{display:none;}
+  #input-area .input-inner{display:block;max-width:none;padding:8px 12px 12px;}
   #user-input{font-size:20px;}
   input[type="text"],input[type="password"],select,textarea.sys-ta{font-size:16px;}
   .input-hint{font-size:9px;}
@@ -461,15 +454,6 @@ function toggleConfig() {
   btn.classList.toggle('active', bar.classList.contains('open'));
 }
 
-function expandInputPanel() {
-  if (window.innerWidth <= 640) return;
-  document.getElementById('input-area').classList.add('expanded');
-  setTimeout(() => document.getElementById('user-input').focus(), 30);
-}
-function collapseInputPanel() {
-  if (window.innerWidth <= 640) return;
-  document.getElementById('input-area').classList.remove('expanded');
-}
 
 // ── Theme ──
 const MOON_SVG = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.5 10A5.5 5.5 0 016 2.5a5.5 5.5 0 100 11 5.5 5.5 0 007.5-3.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -929,18 +913,8 @@ function removePending(id) {
   document.getElementById('card-'+id)?.remove();
 }
 
-// ── Input panel expand/collapse ──
+// ── Input panel (always expanded) ──
 const inputArea = document.getElementById('input-area');
-inputArea.addEventListener('click', e => { if (!inputArea.classList.contains('expanded')) expandInputPanel(); });
-document.addEventListener('keydown', e => {
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  const active = document.activeElement;
-  if (!active) return;
-  const tag = active.tagName;
-  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-  if (e.key.length === 1) { expandInputPanel(); setTimeout(() => { const t=document.getElementById('user-input'); t.focus(); t.value+=e.key; t.dispatchEvent(new Event('input')); }, 35); }
-});
-document.getElementById('input-collapse-btn').addEventListener('click', e => { e.stopPropagation(); collapseInputPanel(); });
 
 // ── Drag & Drop ──
 inputArea.addEventListener('dragover', e => { e.preventDefault(); inputArea.classList.add('drag-over'); });
@@ -974,7 +948,7 @@ ta.addEventListener('keydown', e => {
     }
   }
 });
-ta.addEventListener('focus', () => { expandInputPanel(); setTimeout(() => ta.scrollIntoView({behavior:'smooth', block:'nearest'}), 300); });
+ta.addEventListener('focus', () => { setTimeout(() => ta.scrollIntoView({behavior:'smooth', block:'nearest'}), 300); });
 
 // ── Send ──
 async function sendMessage() {
@@ -1028,7 +1002,6 @@ async function sendMessage() {
   ta.value = ''; ta.style.height = 'auto';
   pendingFiles = [];
   document.getElementById('preview-area').innerHTML = '';
-  collapseInputPanel();
 
   await generateResponse(true);
 }

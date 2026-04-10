@@ -178,9 +178,9 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .input-actions{display:flex;align-items:center;gap:5px;flex-shrink:0;}
 .icon-btn{background:transparent;border:1px solid transparent;border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-faint);transition:all .15s;}
 .icon-btn:hover{color:var(--text-dim);background:var(--surface3);border-color:var(--border);}
-#send-btn{background:var(--accent-dim);border:1px solid rgba(126,231,135,.35);border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--accent);transition:background .15s,box-shadow .15s;flex-shrink:0;}
-#send-btn:hover{background:rgba(126,231,135,.2);box-shadow:0 0 8px var(--accent-glow);}
-#send-btn:disabled{opacity:.3;cursor:not-allowed;box-shadow:none;}
+#send-btn{background:#2ea043;border:1px solid #3fb950;border-radius:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:background .15s,box-shadow .15s,transform .1s;flex-shrink:0;box-shadow:0 2px 8px rgba(46,160,67,.4);}
+#send-btn:hover{background:#3fb950;box-shadow:0 4px 16px rgba(46,160,67,.6);transform:translateY(-1px);}
+#send-btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none;transform:none;}
 .input-hint{font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-top:7px;display:flex;justify-content:space-between;}
 #file-input{display:none;}
 
@@ -346,8 +346,8 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
             accept="image/*,application/pdf,text/plain,text/csv,text/markdown,.md,.csv,audio/*,video/*"
             onchange="handleFiles(this.files)"/>
           <button id="send-btn" onclick="sendMessage()" title="发送">
-            <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-              <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 13V3M3 8l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
         </div>

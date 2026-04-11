@@ -79,6 +79,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-weight:
 input[type="text"],input[type="password"],select,textarea.sys-ta{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;width:100%;outline:none;transition:border-color .15s,box-shadow .15s;}
 input:focus,select:focus,textarea.sys-ta:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-dim);}
 select option{background:var(--surface2);}
+.custom-model-row{display:flex;gap:4px;align-items:center;position:relative;}
+.custom-model-row input{flex:1;min-width:0;}
+.fetch-models-btn{background:var(--accent-dim);border:1px solid rgba(126,231,135,.3);border-radius:6px;color:var(--accent);font-family:var(--mono);font-size:10px;padding:0 8px;cursor:pointer;white-space:nowrap;height:31px;flex-shrink:0;transition:background .15s;}
+.fetch-models-btn:hover{background:rgba(126,231,135,.18);}
+.fetch-models-btn:disabled{opacity:.5;cursor:not-allowed;}
+#model-list-dropdown{position:absolute;z-index:300;background:var(--surface2);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);max-height:220px;overflow-y:auto;width:100%;top:calc(100% + 4px);left:0;}
+#model-list-dropdown::-webkit-scrollbar{width:3px;}
+#model-list-dropdown::-webkit-scrollbar-thumb{background:var(--border);}
+.model-list-item{padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--text-dim);cursor:pointer;transition:background .1s;}
+.model-list-item:hover{background:var(--surface3);color:var(--text);}
 textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;}
 .toggle-label{font-family:var(--mono);font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:6px;}
@@ -283,7 +293,11 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
           <option value="gemini-2.5-flash">gemini-2.5-flash</option>
           <option value="gemini-2.5-pro">gemini-2.5-pro</option>
         </select>
-        <input type="text" id="custom-model" placeholder="自定义模型名（覆盖上方）" oninput="updateModelHint();saveSettings()"/>
+        <div class="custom-model-row">
+          <input type="text" id="custom-model" placeholder="自定义模型名（覆盖上方）" oninput="updateModelHint();saveSettings()"/>
+          <button class="fetch-models-btn" onclick="fetchModelList(this)" title="获取支持 generateContent 的模型列表">获取列表</button>
+          <div id="model-list-dropdown" style="display:none"></div>
+        </div>
       </div>
       <div class="config-col">
         <div class="cfg-label">功能开关</div>
@@ -451,6 +465,56 @@ function toggleConfig() {
   const btn = document.getElementById('cfg-toggle-btn');
   bar.classList.toggle('open');
   btn.classList.toggle('active', bar.classList.contains('open'));
+}
+
+async function fetchModelList(btn) {
+  const cfg = getConfig();
+  if (!cfg.apiKey) { alert('请先填写 API Key'); return; }
+  const dropdown = document.getElementById('model-list-dropdown');
+  if (dropdown.style.display !== 'none') {
+    dropdown.style.display = 'none';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '加载中…';
+  try {
+    const url = `${cfg.baseUrl}/v1beta/models?key=${cfg.apiKey}&pageSize=200`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const models = (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''))
+      .sort();
+    if (models.length === 0) {
+      dropdown.innerHTML = '<div class="model-list-item" style="color:var(--text-faint)">暂无可用模型</div>';
+    } else {
+      dropdown.innerHTML = models.map(m =>
+        `<div class="model-list-item" data-model="${m.replace(/"/g,'&quot;')}">${m}</div>`
+      ).join('');
+      dropdown.querySelectorAll('.model-list-item').forEach(el => {
+        el.addEventListener('click', () => {
+          document.getElementById('custom-model').value = el.dataset.model;
+          dropdown.style.display = 'none';
+          updateModelHint(); saveSettings();
+        });
+      });
+    }
+    dropdown.style.display = 'block';
+    setTimeout(() => {
+      document.addEventListener('click', function closeML(e) {
+        if (!dropdown.contains(e.target) && e.target !== btn) {
+          dropdown.style.display = 'none';
+          document.removeEventListener('click', closeML);
+        }
+      });
+    }, 0);
+  } catch(e) {
+    alert('获取模型列表失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '获取列表';
+  }
 }
 
 

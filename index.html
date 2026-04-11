@@ -141,8 +141,9 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .thinking span:nth-child(2){animation-delay:.2s;} .thinking span:nth-child(3){animation-delay:.4s;}
 @keyframes blink{0%,80%,100%{opacity:.2;transform:scale(.85)}40%{opacity:1;transform:scale(1)}}
 .msg-error{font-family:var(--mono);font-size:12px;color:var(--red);background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);border-radius:6px;padding:10px 12px;}
-.msg-edit-btn{background:transparent;border:none;cursor:pointer;color:var(--text-faint);padding:0;display:inline-flex;align-items:center;transition:color .15s;}
-.msg-edit-btn:hover{color:var(--accent);}
+.msg-edit-btn,.msg-copy-btn{background:transparent;border:none;cursor:pointer;color:var(--text-faint);padding:0;display:inline-flex;align-items:center;transition:color .15s;}
+.msg-edit-btn:hover,.msg-copy-btn:hover{color:var(--accent);}
+.msg-copy-btn.copied{color:var(--accent);}
 .cite-ref{font-family:var(--mono);font-size:9px;color:var(--blue);text-decoration:none;vertical-align:super;line-height:0;}
 .cite-ref:hover{text-decoration:underline;}
 .msg-edit-wrap{width:100%;}
@@ -660,6 +661,21 @@ function buildMsgEl(m, idx) {
     editBtn.onclick = e => { e.stopPropagation(); startEditMsg(idx); };
     rl.appendChild(editBtn);
   }
+  {
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'msg-copy-btn';
+    copyBtn.title = '复制内容';
+    copyBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 4V2.5A1.5 1.5 0 0 0 8 1H2.5A1.5 1.5 0 0 0 1 2.5V8A1.5 1.5 0 0 0 2.5 9.5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    copyBtn.onclick = e => {
+      e.stopPropagation();
+      const text = (m.parts||[]).find(p=>p.text)?.text || body.querySelector('.msg-content')?.innerText || '';
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.classList.add('copied');
+        setTimeout(() => copyBtn.classList.remove('copied'), 1500);
+      }).catch(()=>{});
+    };
+    rl.appendChild(copyBtn);
+  }
   body.appendChild(rl);
 
   // file attachments display
@@ -1152,6 +1168,21 @@ async function generateResponse(popUserOnError) {
       }
 
       liveWrap.removeAttribute('id');
+      const liveRl = liveWrap.querySelector('.msg-role');
+      if (liveRl && !liveRl.querySelector('.msg-copy-btn')) {
+        const cb = document.createElement('button');
+        cb.className = 'msg-copy-btn'; cb.title = '复制内容';
+        cb.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 4V2.5A1.5 1.5 0 0 0 8 1H2.5A1.5 1.5 0 0 0 1 2.5V8A1.5 1.5 0 0 0 2.5 9.5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const capturedText = fullText;
+        cb.onclick = e => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(capturedText).then(() => {
+            cb.classList.add('copied');
+            setTimeout(() => cb.classList.remove('copied'), 1500);
+          }).catch(()=>{});
+        };
+        liveRl.appendChild(cb);
+      }
       const citedFull = marked.parse(applyCitations(fullText, supports, sources));
       const aMsg = {role:'assistant', parts:[{text:fullText}], html:citedFull, usedSearch, sources};
       sess.messages.push(aMsg);

@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gemini Chat</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -88,10 +88,19 @@ select option{background:var(--surface2);}
 .fetch-models-btn{background:var(--accent-dim);border:1px solid rgba(126,231,135,.3);border-radius:6px;color:var(--accent);font-family:var(--mono);font-size:10px;padding:0 8px;cursor:pointer;white-space:nowrap;height:31px;width:100%;box-sizing:border-box;transition:background .15s;}
 .fetch-models-btn:hover{background:rgba(126,231,135,.18);}
 .fetch-models-btn:disabled{opacity:.5;cursor:not-allowed;}
-.model-switcher{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
-.model-chip{font-family:var(--mono);font-size:10px;padding:1px 8px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-faint);cursor:pointer;transition:all .15s;white-space:nowrap;}
-.model-chip:hover{border-color:var(--accent);color:var(--accent);}
-.model-chip.active{border-color:var(--accent);background:var(--accent-dim);color:var(--accent);}
+.model-switch-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:3px 8px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .15s;max-width:200px;overflow:hidden;height:30px;flex-shrink:0;}
+.model-switch-btn:hover,.model-switch-btn.open{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+#model-switch-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+#model-picker{position:absolute;bottom:100%;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -8px 32px rgba(0,0,0,.14);display:none;z-index:99;animation:fadeUp .15s ease;}
+#model-picker.open{display:block;}
+.model-picker-inner{max-width:760px;margin:0 auto;padding:14px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;}
+.model-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:5px;}
+.model-card:hover{border-color:var(--accent);background:var(--accent-dim);}
+.model-card.active{border-color:var(--accent);background:var(--accent-dim);}
+.model-card-header{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.model-card-name{font-family:var(--mono);font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.model-card-badge{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:6px;border:1px solid;flex-shrink:0;white-space:nowrap;}
+.model-card-desc{font-family:var(--sans);font-size:11px;color:var(--text-dim);line-height:1.45;}
 textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;}
 .toggle-label{font-family:var(--mono);font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:6px;}
@@ -191,7 +200,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 #user-input::placeholder{color:var(--text-faint);}
 #user-input::-webkit-scrollbar{width:3px;}
 #user-input::-webkit-scrollbar-thumb{background:var(--border);}
-.input-actions{display:flex;align-items:center;gap:5px;justify-content:flex-end;}
+.input-actions{display:flex;align-items:center;gap:5px;}
 .icon-btn{background:transparent;border:1px solid transparent;border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-faint);transition:all .15s;}
 .icon-btn:hover{color:var(--text-dim);background:var(--surface3);border-color:var(--border);}
 #send-btn{background:#2ea043;border:1px solid #3fb950;border-radius:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:background .15s,box-shadow .15s,transform .1s;flex-shrink:0;box-shadow:0 2px 8px rgba(46,160,67,.4);}
@@ -245,6 +254,8 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
   #user-input{font-size:20px;}
   input[type="text"],input[type="password"],select,textarea.sys-ta{font-size:16px;}
   .input-hint{font-size:9px;}
+  .model-picker-inner{grid-template-columns:1fr;padding:10px 12px;}
+  .model-switch-btn{max-width:160px;}
 
   .file-chip.img-chip img{max-width:100%;}
 }
@@ -341,11 +352,20 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
+    <div id="model-picker">
+      <div class="model-picker-inner" id="model-picker-inner"></div>
+    </div>
     <div class="input-inner">
       <div id="preview-area"></div>
       <div class="input-box">
         <textarea id="user-input" rows="1" placeholder="输入消息…"></textarea>
         <div class="input-actions">
+          <button id="model-switch-btn" class="model-switch-btn" onclick="toggleModelPicker(event)" title="切换模型">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.8 4.2L14 8l-4.2 1.8L8 14l-1.8-4.2L2 8l4.2-1.8L8 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            <span id="model-switch-label">加载中</span>
+            <svg width="8" height="8" viewBox="0 0 16 16" fill="none" id="model-switch-chevron"><path d="M4 10l4-4 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div style="flex:1"></div>
           <button class="icon-btn" title="上传文件" onclick="document.getElementById('file-input').click()">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -361,9 +381,6 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
             </svg>
           </button>
         </div>
-      </div>
-      <div class="input-hint">
-        <div id="model-switcher" class="model-switcher"></div>
       </div>
     </div>
   </div>
@@ -480,22 +497,89 @@ function toggleCandidate(model, checked) {
   saveSettings();
 }
 
-// Render quick-switch chips at bottom of chat
-function renderModelSwitcher() {
-  const sw = document.getElementById('model-switcher');
-  if (!candidateModels.length) {
-    sw.innerHTML = `<span style="font-family:var(--mono);font-size:10px;opacity:.4">无已选模型</span>`;
-    return;
-  }
-  sw.innerHTML = candidateModels.map(m => {
-    const safe = m.replace(/'/g,'&#39;').replace(/"/g,'&quot;');
-    return `<button class="model-chip${m===activeModel?' active':''}" onclick="switchModel('${safe}')">${escHtml(m)}</button>`;
-  }).join('');
+// Model descriptions for known models
+const MODEL_INFO = {
+  'gemini-2.5-pro':           { badge:'Pro',   desc:'最强推理与编程能力，适合复杂分析和长文任务',        color:'var(--purple)' },
+  'gemini-2.5-flash':         { badge:'Flash', desc:'速度与质量兼顾，日常对话与代码首选',              color:'var(--accent)' },
+  'gemini-2.5-flash-lite':    { badge:'Lite',  desc:'极速轻量，低延迟场景与简单任务推荐',              color:'var(--blue)'   },
+  'gemini-2.0-flash':         { badge:'Flash', desc:'上一代 Flash，稳定快速',                       color:'var(--accent)' },
+  'gemini-2.0-flash-lite':    { badge:'Lite',  desc:'上一代 Lite，低成本高吞吐',                    color:'var(--blue)'   },
+  'gemini-1.5-pro':           { badge:'Pro',   desc:'超长上下文（百万 token），适合文档分析',          color:'var(--purple)' },
+  'gemini-1.5-flash':         { badge:'Flash', desc:'长上下文快速版，综合效率高',                     color:'var(--accent)' },
+  'gemini-1.5-flash-8b':      { badge:'Mini',  desc:'小参数量，极低成本',                           color:'var(--blue)'   },
+};
+function getModelInfo(name) {
+  if (MODEL_INFO[name]) return MODEL_INFO[name];
+  if (name.includes('thinking')) return { badge:'Think', desc:'开启深度思考，适合逻辑推理与数学',  color:'var(--orange)' };
+  if (name.includes('pro'))      return { badge:'Pro',   desc:'高性能推理模型',                  color:'var(--purple)' };
+  if (name.includes('flash'))    return { badge:'Flash', desc:'快速响应模型',                    color:'var(--accent)' };
+  if (name.includes('lite'))     return { badge:'Lite',  desc:'轻量快速模型',                    color:'var(--blue)'   };
+  return { badge:'···', desc:'自定义模型', color:'var(--text-faint)' };
 }
 
-// Switch the active model
-function switchModel(model) {
+// Update the model switch button label
+function renderModelSwitcher() {
+  const label = document.getElementById('model-switch-label');
+  if (label) label.textContent = activeModel || candidateModels[0] || '选择模型';
+  const btn = document.getElementById('model-switch-btn');
+  if (btn) btn.classList.toggle('open', document.getElementById('model-picker')?.classList.contains('open'));
+}
+
+// Toggle model picker panel
+function toggleModelPicker(e) {
+  if (e) e.stopPropagation();
+  const picker = document.getElementById('model-picker');
+  const btn = document.getElementById('model-switch-btn');
+  const chevron = document.getElementById('model-switch-chevron');
+  const isOpen = picker.classList.contains('open');
+  if (isOpen) {
+    picker.classList.remove('open');
+    btn.classList.remove('open');
+    chevron.style.transform = '';
+    return;
+  }
+  // Render cards
+  const models = candidateModels.length ? candidateModels : DEFAULT_MODELS;
+  const inner = document.getElementById('model-picker-inner');
+  inner.innerHTML = models.map(m => {
+    const info = getModelInfo(m);
+    const safe = m.replace(/'/g,'&#39;');
+    return `<div class="model-card${m===activeModel?' active':''}" onclick="selectModelFromPicker('${safe}')">
+      <div class="model-card-header">
+        <span class="model-card-name">${escHtml(m)}</span>
+        <span class="model-card-badge" style="color:${info.color};border-color:${info.color}">${info.badge}</span>
+      </div>
+      <div class="model-card-desc">${info.desc}</div>
+    </div>`;
+  }).join('');
+  picker.classList.add('open');
+  btn.classList.add('open');
+  chevron.style.transform = 'rotate(180deg)';
+  setTimeout(() => {
+    document.addEventListener('click', function closePicker(ev) {
+      if (!picker.contains(ev.target) && !btn.contains(ev.target)) {
+        picker.classList.remove('open');
+        btn.classList.remove('open');
+        chevron.style.transform = '';
+        document.removeEventListener('click', closePicker);
+      }
+    });
+  }, 0);
+}
+
+// Select model from picker card
+function selectModelFromPicker(model) {
+  if (!candidateModels.includes(model)) {
+    candidateModels.push(model);
+    renderModelCandidates();
+  }
   activeModel = model;
+  const picker = document.getElementById('model-picker');
+  const btn = document.getElementById('model-switch-btn');
+  const chevron = document.getElementById('model-switch-chevron');
+  picker.classList.remove('open');
+  btn.classList.remove('open');
+  if (chevron) chevron.style.transform = '';
   saveSettings();
 }
 

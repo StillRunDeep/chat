@@ -616,8 +616,8 @@ async function fetchModelList(btn) {
   btn.disabled = true;
   btn.textContent = '加载中…';
   try {
-    const url = `${cfg.baseUrl}/v1beta/models?key=${cfg.apiKey}&pageSize=200`;
-    const resp = await fetch(url);
+    const url = `${cfg.baseUrl}/v1beta/models?pageSize=200`;
+    const resp = await fetch(url, { headers: { 'x-goog-api-key': cfg.apiKey } });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     cachedModelList = (data.models || [])
@@ -978,10 +978,11 @@ function toast(msg, dur=2200) {
 // ── File upload via File API ──
 async function uploadViaFileAPI(file, cfg, cardEl) {
   // Step 1: initiate resumable upload
-  const initUrl = `${cfg.baseUrl}/upload/v1beta/files?key=${cfg.apiKey}`;
+  const initUrl = `${cfg.baseUrl}/upload/v1beta/files`;
   const initRes = await fetch(initUrl, {
     method:'POST',
     headers:{
+      'x-goog-api-key': cfg.apiKey,
       'X-Goog-Upload-Protocol':'resumable',
       'X-Goog-Upload-Command':'start',
       'X-Goog-Upload-Header-Content-Length': file.size,
@@ -1021,7 +1022,7 @@ async function uploadViaFileAPI(file, cfg, cardEl) {
   setCardStatus(cardEl, 'uploading', '处理中…');
   for (let i=0; i<30; i++) {
     await new Promise(r=>setTimeout(r,1500));
-    const pollRes = await fetch(`${cfg.baseUrl}/v1beta/${fileId}?key=${cfg.apiKey}`);
+    const pollRes = await fetch(`${cfg.baseUrl}/v1beta/${fileId}`, { headers: { 'x-goog-api-key': cfg.apiKey } });
     if (!pollRes.ok) break;
     const info = await pollRes.json();
     if (info.state === 'ACTIVE') { setCardStatus(cardEl,'done','就绪'); return fileUri; }
@@ -1229,12 +1230,12 @@ async function generateResponse(popUserOnError) {
       if (cfg.useSearch) reqBody.tools = [{ googleSearch:{} }];
 
       const endpoint = cfg.useStream
-        ? `${cfg.baseUrl}/v1beta/models/${cfg.model}:streamGenerateContent?alt=sse&key=${cfg.apiKey}`
-        : `${cfg.baseUrl}/v1beta/models/${cfg.model}:generateContent?key=${cfg.apiKey}`;
+        ? `${cfg.baseUrl}/v1beta/models/${cfg.model}:streamGenerateContent?alt=sse`
+        : `${cfg.baseUrl}/v1beta/models/${cfg.model}:generateContent`;
 
       const res = await fetch(endpoint, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json', 'x-goog-api-key': cfg.apiKey},
         body:JSON.stringify(reqBody),
       });
 

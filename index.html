@@ -144,6 +144,8 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .msg-edit-btn,.msg-copy-btn{background:transparent;border:none;cursor:pointer;color:var(--text-faint);padding:0;display:inline-flex;align-items:center;transition:color .15s;}
 .msg-edit-btn:hover,.msg-copy-btn:hover{color:var(--accent);}
 .msg-copy-btn.copied{color:var(--accent);}
+.msg-token-count{font-family:var(--mono);font-size:9px;color:var(--text-faint);opacity:.6;margin-left:2px;}
+.msg-finish-warn{font-family:var(--mono);font-size:11px;color:var(--yellow);background:rgba(154,103,0,.08);border:1px solid rgba(154,103,0,.2);border-radius:6px;padding:6px 10px;margin-top:8px;}
 .cite-ref{font-family:var(--mono);font-size:9px;color:var(--blue);text-decoration:none;vertical-align:super;line-height:0;}
 .cite-ref:hover{text-decoration:underline;}
 .msg-edit-wrap{width:100%;}
@@ -668,13 +670,21 @@ function buildMsgEl(m, idx) {
     copyBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 4V2.5A1.5 1.5 0 0 0 8 1H2.5A1.5 1.5 0 0 0 1 2.5V8A1.5 1.5 0 0 0 2.5 9.5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     copyBtn.onclick = e => {
       e.stopPropagation();
-      const text = (m.parts||[]).find(p=>p.text)?.text || body.querySelector('.msg-content')?.innerText || '';
+      // Filter out thought parts — only copy visible text parts
+      const text = (m.parts||[]).find(p => !p.thought && p.text)?.text || body.querySelector('.msg-content')?.innerText || '';
       navigator.clipboard.writeText(text).then(() => {
         copyBtn.classList.add('copied');
         setTimeout(() => copyBtn.classList.remove('copied'), 1500);
       }).catch(()=>{});
     };
     rl.appendChild(copyBtn);
+  }
+  if (m.tokenCount) {
+    const tc = document.createElement('span');
+    tc.className = 'msg-token-count';
+    tc.textContent = m.tokenCount >= 1000 ? `${(m.tokenCount/1000).toFixed(1)}k` : `${m.tokenCount}`;
+    tc.title = `${m.tokenCount} tokens`;
+    rl.appendChild(tc);
   }
   body.appendChild(rl);
 
@@ -704,6 +714,12 @@ function buildMsgEl(m, idx) {
   ct.innerHTML = m.html||'';
   body.appendChild(ct);
   if (m.sources && m.sources.length) body.appendChild(buildSourcesEl(m.sources));
+  if (m.finishWarning) {
+    const fw = document.createElement('div');
+    fw.className = 'msg-finish-warn';
+    fw.textContent = m.finishWarning === 'MAX_TOKENS' ? '⚠ 输出已达 token 上限，回答可能不完整' : `⚠ 生成终止：${m.finishWarning}`;
+    body.appendChild(fw);
+  }
   wrap.appendChild(body);
   return wrap;
 }
@@ -1113,9 +1129,12 @@ async function generateResponse(popUserOnError) {
       }
 
       let fullText = '';
+      let rawParts = [];   // Complete parts from API (preserves thoughtSignature for multi-turn)
       let usedSearch = false;
       let sources = [];
       let supports = [];
+      let finishWarning = '';
+      let totalTokens = 0;
 
       if (cfg.useStream) {
         const reader = res.body.getReader();
@@ -1133,8 +1152,29 @@ async function generateResponse(popUserOnError) {
             if (raw==='[DONE]') continue;
             try {
               const chunk = JSON.parse(raw);
-              const part = chunk.candidates?.[0]?.content?.parts?.[0];
-              if (part?.text) { fullText+=part.text; liveCt.innerHTML=marked.parse(fullText); }
+              // Accumulate all parts, separating thought vs text
+              for (const p of (chunk.candidates?.[0]?.content?.parts || [])) {
+                if (p.thought) {
+                  // Merge consecutive thought chunks; preserve thoughtSignature
+                  const last = rawParts[rawParts.length - 1];
+                  if (last?.thought) {
+                    if (p.text) last.text = (last.text||'') + p.text;
+                    if (p.thoughtSignature) last.thoughtSignature = p.thoughtSignature;
+                  } else {
+                    rawParts.push({ thought: true, text: p.text||'', ...(p.thoughtSignature && {thoughtSignature: p.thoughtSignature}) });
+                  }
+                } else if (p.text) {
+                  // Merge consecutive text chunks; display to user
+                  const last = rawParts[rawParts.length - 1];
+                  if (last && !last.thought) { last.text += p.text; }
+                  else { rawParts.push({ text: p.text }); }
+                  fullText += p.text;
+                  liveCt.innerHTML = marked.parse(fullText);
+                }
+              }
+              const fr = chunk.candidates?.[0]?.finishReason;
+              if (fr && fr !== 'STOP' && fr !== 'FINISH_REASON_UNSPECIFIED') finishWarning = fr;
+              if (chunk.usageMetadata?.totalTokenCount) totalTokens = chunk.usageMetadata.totalTokenCount;
               const meta = chunk.candidates?.[0]?.groundingMetadata;
               if (meta?.webSearchQueries?.length) usedSearch=true;
               if (meta?.groundingChunks?.length) sources = meta.groundingChunks.map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
@@ -1144,16 +1184,48 @@ async function generateResponse(popUserOnError) {
         }
         if (supports.length) liveCt.innerHTML = marked.parse(applyCitations(fullText, supports, sources));
         renderMermaid(liveCt);
+        if (finishWarning) {
+          const fw=document.createElement('div'); fw.className='msg-finish-warn';
+          fw.textContent = finishWarning==='MAX_TOKENS' ? '⚠ 输出已达 token 上限，回答可能不完整' : `⚠ 生成终止：${finishWarning}`;
+          liveBody.appendChild(fw);
+        }
         if (usedSearch) {
           const b=document.createElement('div'); b.className='search-badge';
           b.innerHTML=`<svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>已联网搜索`;
           liveBody.insertBefore(b,liveCt);
         }
         if (sources.length) liveBody.appendChild(buildSourcesEl(sources));
+        // Inject token count + copy button into live element
+        liveWrap.removeAttribute('id');
+        const liveRl = liveWrap.querySelector('.msg-role');
+        if (liveRl) {
+          if (totalTokens) {
+            const tc=document.createElement('span'); tc.className='msg-token-count';
+            tc.textContent = totalTokens>=1000 ? `${(totalTokens/1000).toFixed(1)}k` : `${totalTokens}`;
+            tc.title = `${totalTokens} tokens`;
+            liveRl.appendChild(tc);
+          }
+          if (!liveRl.querySelector('.msg-copy-btn')) {
+            const cb=document.createElement('button');
+            cb.className='msg-copy-btn'; cb.title='复制内容';
+            cb.innerHTML=`<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 4V2.5A1.5 1.5 0 0 0 8 1H2.5A1.5 1.5 0 0 0 1 2.5V8A1.5 1.5 0 0 0 2.5 9.5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            const capturedText = fullText;
+            cb.onclick = e => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(capturedText).then(()=>{ cb.classList.add('copied'); setTimeout(()=>cb.classList.remove('copied'),1500); }).catch(()=>{});
+            };
+            liveRl.appendChild(cb);
+          }
+        }
       } else {
         const data = await res.json();
         const cand = data.candidates?.[0];
-        fullText = cand?.content?.parts?.map(p=>p.text||'').join('')||'';
+        rawParts = cand?.content?.parts || [];
+        // Only show non-thought parts as visible text
+        fullText = rawParts.filter(p => !p.thought).map(p => p.text||'').join('');
+        const fr = cand?.finishReason;
+        if (fr && fr !== 'STOP' && fr !== 'FINISH_REASON_UNSPECIFIED') finishWarning = fr;
+        if (data.usageMetadata?.totalTokenCount) totalTokens = data.usageMetadata.totalTokenCount;
         const meta = cand?.groundingMetadata;
         if (meta?.webSearchQueries?.length) usedSearch=true;
         sources = (meta?.groundingChunks||[]).map(c=>({uri:c.web?.uri,title:c.web?.title})).filter(s=>s.uri);
@@ -1161,30 +1233,21 @@ async function generateResponse(popUserOnError) {
         liveWrap.remove();
         const cont = document.getElementById('msg-container');
         const citedHtml = marked.parse(applyCitations(fullText, supports, sources));
-        const msgEl = buildMsgEl({role:'assistant', html:citedHtml, usedSearch, sources});
+        const msgEl = buildMsgEl({role:'assistant', parts:rawParts, html:citedHtml, usedSearch, sources,
+          ...(finishWarning && {finishWarning}), ...(totalTokens && {tokenCount:totalTokens})});
         cont.appendChild(msgEl);
         renderMermaid(msgEl.querySelector('.msg-content'));
         scrollBot();
       }
 
-      liveWrap.removeAttribute('id');
-      const liveRl = liveWrap.querySelector('.msg-role');
-      if (liveRl && !liveRl.querySelector('.msg-copy-btn')) {
-        const cb = document.createElement('button');
-        cb.className = 'msg-copy-btn'; cb.title = '复制内容';
-        cb.innerHTML = `<svg width="10" height="10" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 4V2.5A1.5 1.5 0 0 0 8 1H2.5A1.5 1.5 0 0 0 1 2.5V8A1.5 1.5 0 0 0 2.5 9.5H4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-        const capturedText = fullText;
-        cb.onclick = e => {
-          e.stopPropagation();
-          navigator.clipboard.writeText(capturedText).then(() => {
-            cb.classList.add('copied');
-            setTimeout(() => cb.classList.remove('copied'), 1500);
-          }).catch(()=>{});
-        };
-        liveRl.appendChild(cb);
-      }
       const citedFull = marked.parse(applyCitations(fullText, supports, sources));
-      const aMsg = {role:'assistant', parts:[{text:fullText}], html:citedFull, usedSearch, sources};
+      const aMsg = {
+        role: 'assistant',
+        parts: rawParts.length ? rawParts : [{text:fullText}],  // Preserve all parts incl. thoughtSignature
+        html: citedFull, usedSearch, sources,
+        ...(finishWarning && {finishWarning}),
+        ...(totalTokens && {tokenCount:totalTokens}),
+      };
       sess.messages.push(aMsg);
       saveSessions(); renderSessionList();
       lastErr = null;

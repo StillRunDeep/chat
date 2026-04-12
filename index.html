@@ -91,7 +91,9 @@ select option{background:var(--surface2);}
 .model-switch-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:3px 8px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .15s;max-width:200px;overflow:hidden;height:30px;flex-shrink:0;}
 .model-switch-btn:hover,.model-switch-btn.open{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
 #model-switch-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
-#model-picker{position:absolute;bottom:100%;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -8px 32px rgba(0,0,0,.14);display:none;z-index:99;animation:fadeUp .15s ease;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+#picker-backdrop{display:none;position:fixed;inset:0;z-index:99;}
+#picker-backdrop.open{display:block;}
+#model-picker{position:absolute;bottom:100%;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -8px 32px rgba(0,0,0,.14);display:none;z-index:101;animation:fadeUp .15s ease;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 #model-picker::-webkit-scrollbar{width:4px;}
 #model-picker::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 #model-picker::-webkit-scrollbar-track{background:transparent;}
@@ -358,6 +360,7 @@ textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
   </div>
 
   <!-- Input -->
+  <div id="picker-backdrop" onclick="toggleModelPicker(event)"></div>
   <div id="input-area">
     <div class="input-fab">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11 2l3 3L5 14H2v-3L11 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
@@ -540,19 +543,22 @@ function renderModelSwitcher() {
   if (btn) btn.classList.toggle('open', document.getElementById('model-picker')?.classList.contains('open'));
 }
 
+function setPickerOpen(open) {
+  const picker   = document.getElementById('model-picker');
+  const btn      = document.getElementById('model-switch-btn');
+  const chevron  = document.getElementById('model-switch-chevron');
+  const backdrop = document.getElementById('picker-backdrop');
+  picker.classList.toggle('open', open);
+  btn.classList.toggle('open', open);
+  if (chevron)  chevron.style.transform = open ? 'rotate(180deg)' : '';
+  if (backdrop) backdrop.classList.toggle('open', open);
+}
+
 // Toggle model picker panel
 function toggleModelPicker(e) {
   if (e) e.stopPropagation();
   const picker = document.getElementById('model-picker');
-  const btn = document.getElementById('model-switch-btn');
-  const chevron = document.getElementById('model-switch-chevron');
-  const isOpen = picker.classList.contains('open');
-  if (isOpen) {
-    picker.classList.remove('open');
-    btn.classList.remove('open');
-    chevron.style.transform = '';
-    return;
-  }
+  if (picker.classList.contains('open')) { setPickerOpen(false); return; }
   // Render cards
   const models = candidateModels.length ? candidateModels : DEFAULT_MODELS;
   const inner = document.getElementById('model-picker-inner');
@@ -571,19 +577,7 @@ function toggleModelPicker(e) {
       ${tagsHtml}
     </div>`;
   }).join('');
-  picker.classList.add('open');
-  btn.classList.add('open');
-  chevron.style.transform = 'rotate(180deg)';
-  setTimeout(() => {
-    document.addEventListener('click', function closePicker(ev) {
-      if (!picker.contains(ev.target) && !btn.contains(ev.target)) {
-        picker.classList.remove('open');
-        btn.classList.remove('open');
-        chevron.style.transform = '';
-        document.removeEventListener('click', closePicker);
-      }
-    });
-  }, 0);
+  setPickerOpen(true);
 }
 
 // Select model from picker card
@@ -593,12 +587,7 @@ function selectModelFromPicker(model) {
     renderModelCandidates();
   }
   activeModel = model;
-  const picker = document.getElementById('model-picker');
-  const btn = document.getElementById('model-switch-btn');
-  const chevron = document.getElementById('model-switch-chevron');
-  picker.classList.remove('open');
-  btn.classList.remove('open');
-  if (chevron) chevron.style.transform = '';
+  setPickerOpen(false);
   saveSettings();
 }
 

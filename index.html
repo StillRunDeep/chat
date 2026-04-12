@@ -101,6 +101,9 @@ select option{background:var(--surface2);}
 .model-card-name{font-family:var(--mono);font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .model-card-badge{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:6px;border:1px solid;flex-shrink:0;white-space:nowrap;}
 .model-card-desc{font-family:var(--sans);font-size:11px;color:var(--text-dim);line-height:1.45;}
+.model-card-price{font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-top:1px;}
+.model-card-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;}
+.model-card-tag{font-size:10px;color:var(--text-dim);background:var(--surface3);border:1px solid var(--border);border-radius:3px;padding:1px 5px;}
 textarea.sys-ta{resize:vertical;min-height:60px;line-height:1.5;}
 .toggle-row{display:flex;align-items:center;justify-content:space-between;}
 .toggle-label{font-family:var(--mono);font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:6px;}
@@ -499,14 +502,14 @@ function toggleCandidate(model, checked) {
 
 // Model descriptions for known models
 const MODEL_INFO = {
-  'gemini-2.5-pro':           { badge:'Pro',   desc:'最强推理与编程能力，适合复杂分析和长文任务',        color:'var(--purple)' },
-  'gemini-2.5-flash':         { badge:'Flash', desc:'速度与质量兼顾，日常对话与代码首选',              color:'var(--accent)' },
-  'gemini-2.5-flash-lite':    { badge:'Lite',  desc:'极速轻量，低延迟场景与简单任务推荐',              color:'var(--blue)'   },
-  'gemini-2.0-flash':         { badge:'Flash', desc:'上一代 Flash，稳定快速',                       color:'var(--accent)' },
-  'gemini-2.0-flash-lite':    { badge:'Lite',  desc:'上一代 Lite，低成本高吞吐',                    color:'var(--blue)'   },
-  'gemini-1.5-pro':           { badge:'Pro',   desc:'超长上下文（百万 token），适合文档分析',          color:'var(--purple)' },
-  'gemini-1.5-flash':         { badge:'Flash', desc:'长上下文快速版，综合效率高',                     color:'var(--accent)' },
-  'gemini-1.5-flash-8b':      { badge:'Mini',  desc:'小参数量，极低成本',                           color:'var(--blue)'   },
+  'gemini-2.5-pro':        { badge:'Pro',   desc:'最强推理与编程能力，支持深度思考模式',  color:'var(--purple)', price:'输入 $1.25 · 输出 $10 / 百万 token',    tags:['复杂分析','长文档','编程','数学']      },
+  'gemini-2.5-flash':      { badge:'Flash', desc:'速度与质量兼顾，支持思考模式',        color:'var(--accent)', price:'输入 $0.15 · 输出 $0.60 / 百万 token',  tags:['日常对话','代码','多模态']            },
+  'gemini-2.5-flash-lite': { badge:'Lite',  desc:'极速轻量，低延迟场景推荐',           color:'var(--blue)',   price:'输入 $0.10 · 输出 $0.40 / 百万 token',  tags:['简单任务','高吞吐','低成本']          },
+  'gemini-2.0-flash':      { badge:'Flash', desc:'上一代 Flash，稳定快速，工具调用强',  color:'var(--accent)', price:'输入 $0.10 · 输出 $0.40 / 百万 token',  tags:['日常对话','代码','搜索']              },
+  'gemini-2.0-flash-lite': { badge:'Lite',  desc:'上一代 Lite，低成本高吞吐',         color:'var(--blue)',   price:'输入 $0.075 · 输出 $0.30 / 百万 token', tags:['简单任务','高吞吐']                  },
+  'gemini-1.5-pro':        { badge:'Pro',   desc:'超长上下文（百万 token），文档分析',  color:'var(--purple)', price:'输入 $1.25 · 输出 $5 / 百万 token',     tags:['超长文档','RAG','复杂分析']           },
+  'gemini-1.5-flash':      { badge:'Flash', desc:'长上下文快速版，综合效率高',         color:'var(--accent)', price:'输入 $0.075 · 输出 $0.30 / 百万 token', tags:['长上下文','综合任务']                 },
+  'gemini-1.5-flash-8b':   { badge:'Mini',  desc:'小参数量，极低成本',               color:'var(--blue)',   price:'输入 $0.0375 · 输出 $0.15 / 百万 token',tags:['极低成本','简单任务']                 },
 };
 function getModelInfo(name) {
   if (MODEL_INFO[name]) return MODEL_INFO[name];
@@ -544,12 +547,16 @@ function toggleModelPicker(e) {
   inner.innerHTML = models.map(m => {
     const info = getModelInfo(m);
     const safe = m.replace(/'/g,'&#39;');
+    const priceHtml = info.price ? `<div class="model-card-price">${info.price}</div>` : '';
+    const tagsHtml  = info.tags?.length ? `<div class="model-card-tags">${info.tags.map(t=>`<span class="model-card-tag">${escHtml(t)}</span>`).join('')}</div>` : '';
     return `<div class="model-card${m===activeModel?' active':''}" onclick="selectModelFromPicker('${safe}')">
       <div class="model-card-header">
         <span class="model-card-name">${escHtml(m)}</span>
         <span class="model-card-badge" style="color:${info.color};border-color:${info.color}">${info.badge}</span>
       </div>
       <div class="model-card-desc">${info.desc}</div>
+      ${priceHtml}
+      ${tagsHtml}
     </div>`;
   }).join('');
   picker.classList.add('open');

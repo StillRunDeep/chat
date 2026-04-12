@@ -618,7 +618,10 @@ async function fetchModelList(btn) {
   try {
     const url = `${cfg.baseUrl}/v1beta/models?pageSize=200`;
     const resp = await fetch(url, { headers: { 'x-goog-api-key': cfg.apiKey } });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (!resp.ok) {
+      const e = await resp.json().catch(()=>({}));
+      throw new Error(e?.error?.message || `HTTP ${resp.status}`);
+    }
     const data = await resp.json();
     cachedModelList = (data.models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
